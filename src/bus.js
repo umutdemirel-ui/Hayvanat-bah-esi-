@@ -101,7 +101,7 @@ export class SupaBus {
       const mod = await import('@supabase/supabase-js');
       this.client = mod.createClient(this.url, this.key, {
         auth: { persistSession: false, autoRefreshToken: false },
-        realtime: { params: { eventsPerSecond: 30 } },
+        realtime: { params: { eventsPerSecond: 40 } },
       });
     }
     await new Promise((resolve, reject) => {

@@ -280,7 +280,7 @@ net.on('joined', (msg) => {
 
 net.on('lobby', (msg) => {
   state.host = msg.host;
-  const isHost = msg.host === state.myId;
+  const isHost = !!state.myId && msg.host === state.myId;
   const wrap = $('lobbyPlayers');
   const rows = [];
   for (let i = 0; i < 4; i++) {
