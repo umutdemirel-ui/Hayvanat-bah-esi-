@@ -54,6 +54,8 @@ export class Game {
     this.cinematicAngle = 0;
     this.stamina = 1;
     this.staminaDelay = 0;
+    this.bodyYaw = 0;
+    this.aimUntil = 0;
     this.localAction = null;
     this.hurtAt = -10;
     this.cages = [];
@@ -122,8 +124,12 @@ export class Game {
     this.prevHp = 100;
     this.me.downed = false;
     this.me.vx = this.me.vz = 0;
+    this.bodyYaw = this.camYaw;
+    this.aimUntil = 0;
     this.stamina = 1;
     this.staminaDelay = 0;
+    this.bodyYaw = 0;
+    this.aimUntil = 0;
     this.localAction = null;
     this.audio.play('spawn');
   }
@@ -144,6 +150,8 @@ export class Game {
     this.prevHp = 100;
     this.stamina = 1;
     this.staminaDelay = 0;
+    this.bodyYaw = 0;
+    this.aimUntil = 0;
     this.localAction = null;
     this.hurtAt = -10;
     for (const c of this.cages) this.scene.remove(c.group);
@@ -612,6 +620,12 @@ export class Game {
     return { group: g, fill, bg };
   }
 
+  headLookOffset() {
+    let d = this.camYaw - this.bodyYaw;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    return d;
+  }
+
   currentAction(ent) {
     if (!ent || !ent.action) return null;
     const dur = ent.api?.actionDur?.[ent.action.type] ?? 0.5;
@@ -854,6 +868,7 @@ export class Game {
       if (a === 'bait') msg.kind = TOOLS.bait.kinds[this.baitKindIdx].k;
       this.net.send(msg);
       this.localAction = { type: a, t0: this.time };
+      this.aimUntil = this.time + 1.0;
       this.slotFlash = a;
     }
   }
@@ -915,8 +930,17 @@ export class Game {
     const res = resolveCollisions(this.me.x + this.me.vx * dt, this.me.z + this.me.vz * dt, WORLD.playerRadius);
     this.me.x = res.x;
     this.me.z = res.z;
-    // yön: bakış yönü
+    // nişan yönü (araçlar bu yöne gider)
     this.me.yaw = lerpAngle(this.me.yaw, this.camYaw, 1 - Math.exp(-18 * dt));
+
+    // gövde yönü: WASD ile hareket ederken gövde/yüz hareket yönüne döner,
+    // nişan alırken (son 1 sn içinde araç kullanıldıysa) kameraya döner.
+    const aiming = this.time < this.aimUntil;
+    // geri geri giderken gövde dönmesin (yüz kameraya dönük kalsın)
+    const backpedal = (dx * Math.sin(this.camYaw) + dz * Math.cos(this.camYaw)) < -0.45;
+    const turnToMove = len > 0.001 && !aiming && !backpedal;
+    const bodyTarget = turnToMove ? Math.atan2(dx, dz) : this.camYaw;
+    this.bodyYaw = lerpAngle(this.bodyYaw, bodyTarget, 1 - Math.exp(-(len > 0.001 ? 12 : 15) * dt));
 
     // ağ senkronu
     this.sendAcc += dt;
@@ -925,7 +949,7 @@ export class Game {
       this.net.send({
         t: 'move',
         x: +this.me.x.toFixed(3), z: +this.me.z.toFixed(3),
-        yaw: +this.me.yaw.toFixed(3),
+        yaw: +this.bodyYaw.toFixed(3),
         mv: len > 0.01 ? 1 : 0, sp: !!input.sprint && canSprint && len > 0.01 ? 1 : 0,
       });
     }
@@ -1022,7 +1046,7 @@ export class Game {
       const isMe = id === this.myId;
       if (isMe) {
         ent.api.group.position.set(this.me.x, 0, this.me.z);
-        ent.api.group.rotation.y = this.me.yaw;
+        ent.api.group.rotation.y = this.bodyYaw;
         const mspd = Math.hypot(this.me.vx, this.me.vz);
         const mst = this.me.status || {};
         ent.api.animate(this.time, {
@@ -1036,6 +1060,7 @@ export class Game {
           revive: this.reviveHeld || 0,
           action: this.currentAction(ent),
           hurt: this.time - this.hurtAt < 0.35 ? 1 : 0,
+          headYaw: this.headLookOffset(),
         });
       } else {
         const k = 1 - Math.exp(-12 * dt);

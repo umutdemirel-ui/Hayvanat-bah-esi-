@@ -118,6 +118,12 @@ tools/              Geliştirici testleri (aşağıya bak)
 - 30 Hz simülasyon, 15 Hz snapshot; istemci interpolasyon + yerel hareket tahmini.
 - Tüm görseller ve sesler kodla üretilir — hiçbir dış varlık yok.
 
+### Karakter yönü ve yüzü
+- **Gövde WASD yönüne döner:** yan/çapraz giderken karakter o yöne koşar, geri geri giderken dönmez.
+- **Kafa kameraya bakar:** gövde dönükken kafa ±57°'ye kadar kameraya döner; nişan alırken (araç kullanınca 1 sn)
+  gövde de kameraya döner. Böylece yüz hiçbir zaman "donuk" kalmaz.
+- **Yüz canlı:** 3.7 sn'de bir kırpma, koşarken açılan ağız + dişler, sersem/yerdeyken kısılan göz ve eğilen kaşlar.
+
 ### Karakter animasyonu
 Bekçi iskeletli: kalça → gövde → kafa + 2 kemikli bacak/kollar, sırt çantası, kapşon ve elde ağ.
 `models.js` içindeki `animate(t, { moving, speed, sprint, downed, netted, slip, dizzy, revive, action, hurt })`

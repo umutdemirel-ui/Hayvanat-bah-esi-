@@ -142,10 +142,49 @@ export function createRanger(color) {
   const skull = sph(0.215, skin);
   skull.scale.set(1, 1.03, 0.96);
   head.add(skull);
-  eyes(head, 0.04, 0.082, 0.03, 0.185);
+  // ---------- yüz (gözler, kaşlar, ağız) ----------
+  const face = new THREE.Group();
+  head.add(face);
+  const eyeWhiteMat = mat(0xf8f5ef, { unique: true });
+  const pupilMat = mat(0x141414, { unique: true, roughness: 0.28 });
+  const lids = [];
+  const brows = [];
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Group();
+    eye.position.set(s * 0.082, 0.032, 0.166);
+    face.add(eye);
+    const white = new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 8), eyeWhiteMat);
+    white.scale.set(1, 1, 0.5);
+    eye.add(white);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.017, 8, 6), pupilMat);
+    pupil.position.set(0, 0, 0.019);
+    eye.add(pupil);
+    // göz kapağı (kırpma / sersem / yerde) — sadece kapanırken görünür
+    const lid = new THREE.Mesh(new THREE.SphereGeometry(0.041, 10, 8), mat(skin, { unique: true }));
+    lid.scale.set(1.05, 1, 0.62);
+    lid.position.set(0, 0.078, 0.002);
+    lid.visible = false;
+    eye.add(lid);
+    lids.push(lid);
+    // kaş
+    const brow = box(0.075, 0.016, 0.018, 0x3a2a1e);
+    brow.position.set(s * 0.083, 0.079, 0.19);
+    brow.rotation.z = s * -0.14;
+    face.add(brow);
+    brows.push(brow);
+  }
   const nose = sph(0.032, 0xd8a37a);
   nose.position.set(0, -0.045, 0.205);
   head.add(nose);
+  // ağız: üzgün/koşarken açılır
+  // ağız: kapalıyken ince çizgi, koşarken/bağırırken açılır
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.014, 0.012), mat(0x4a1c18, { unique: true }));
+  mouth.position.set(0, -0.118, 0.192);
+  face.add(mouth);
+  const teeth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.008, 0.008), mat(0xfdf7ee, { unique: true }));
+  teeth.position.set(0, 0.014, 0.004);
+  mouth.add(teeth);
+  teeth.visible = false;
   const cap = cyl(0.225, 0.238, 0.1, dark);
   cap.position.y = 0.165;
   head.add(cap);
@@ -218,7 +257,7 @@ export function createRanger(color) {
       thighL: 0, thighR: 0, kneeL: 0.05, kneeR: 0.05,
       armLx: 0, armRx: 0, armLz: 0.14, armRz: -0.14,
       elbowL: -0.22, elbowR: -0.3, lean: 0, twist: 0,
-      headX: 0, headY: 0, hipY: 0, hipRoll: 0, rootY: 0, fall: 0,
+      headX: 0, headY: 0, headLook: 0, hipY: 0, hipRoll: 0, rootY: 0, fall: 0,
     },
   };
   const ease = (a, b, x) => a + (b - a) * Math.max(0, Math.min(1, x));
@@ -232,6 +271,7 @@ export function createRanger(color) {
     legs,
     arms,
     netGroup,
+    face: { lids, brows, mouth, teeth },
     downed: false,
     actionDur: ACTION_DUR,
 
@@ -249,18 +289,20 @@ export function createRanger(color) {
       const revive = opts.revive || 0;
       const act = opts.action || null;
       const hurt = opts.hurt || 0;
+      const headYaw = Math.max(-1.0, Math.min(1.0, opts.headYaw || 0));
 
       const P = {
         thighL: 0, thighR: 0, kneeL: 0.06, kneeR: 0.06,
         armLx: 0, armRx: 0, armLz: 0.14, armRz: -0.14,
         elbowL: -0.22, elbowR: -0.3, lean: 0.02, twist: 0,
-        headX: 0, headY: 0, hipY: 0, hipRoll: 0, rootY: 0,
+        headX: 0, headY: 0, headLook: 0, hipY: 0, hipRoll: 0, rootY: 0,
       };
 
       // nefes alma
       const breathe = Math.sin(t * 1.7) * 0.018;
       P.lean += breathe * 0.5;
       P.rootY += breathe * 0.2;
+      P.headLook = headYaw;
 
       if (moving) {
         const stride = sprint ? 13 : 8.4;
@@ -460,9 +502,34 @@ export function createRanger(color) {
       hips.position.y = 0.8 + c.hipY;
       hips.rotation.z = c.hipRoll;
       chest.rotation.x = c.lean;
-      chest.rotation.y = c.twist;
+      chest.rotation.y = c.twist + c.headLook * 0.34;
       head.rotation.x = c.headX - c.lean * 0.5;
-      head.rotation.y = c.headY;
+      head.rotation.y = c.headY + c.headLook * 0.72;
+
+      // ---------- yüz: kırpma, kaş, ağız ----------
+      const blinkCycle = t % 3.7;
+      let blink = blinkCycle < 0.15 ? Math.sin((blinkCycle / 0.15) * Math.PI) : 0;
+      if (dizzy) blink = Math.max(blink, 0.55 + Math.sin(t * 9) * 0.2);
+      if (downed || slip) blink = 1;
+      for (const lid of lids) {
+        lid.visible = blink > 0.02;
+        lid.position.y = 0.078 - blink * 0.082;
+      }
+
+      const browLift = sprint ? 0.014 : 0;
+      const browAngry = dizzy || hurt > 0 ? -0.016 : 0;
+      for (let i = 0; i < brows.length; i++) {
+        const sgn = i === 0 ? -1 : 1;
+        brows[i].position.y = 0.079 + browLift + browAngry + Math.sin(t * 1.6 + i) * 0.003;
+        brows[i].rotation.z = sgn * (-0.14 - (dizzy || hurt ? 0.22 : 0));
+      }
+
+      const openMouth = (sprint && moving ? 0.55 : 0) + (hurt > 0 ? 1 : 0) + (downed ? 0.7 : 0);
+      const mouthOpen = Math.min(1.6, openMouth + (act ? 0.25 : 0));
+      mouth.scale.set(1 + mouthOpen * 0.25, 1 + mouthOpen * 2.6, 1);
+      mouth.position.y = -0.118 - mouthOpen * 0.012;
+      mouth.rotation.z = downed ? 0.16 : 0;
+      teeth.visible = mouthOpen > 0.55;
       root.position.y = c.rootY + c.fall * 0.16;
       root.rotation.z = -c.fall * 1.36;
       root.rotation.x = c.fall * 0.11;
