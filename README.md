@@ -25,6 +25,42 @@ DEV=1 npm run dev  # http://localhost:3000
 - Arkadaşların aynı bağlantıyı açıp **Odaya Katıl** ile kodu girer (veya `?oda=KOD` parametreli linki açar).
 - Kurucu **Turu Başlat** der. Tek başına denemek için **Tek Başına Oyna**.
 
+### ☁️ Bulut çok oyunculu (Supabase Realtime)
+
+Oyun iki taşıyıcıyla çalışır (`src/main.js` otomatik seçer):
+
+| Taşıyıcı | Ne zaman | Dosya |
+|---|---|---|
+| WebSocket | yerel sunucu (`npm start`) | `src/net.js` + `server/index.js` |
+| Supabase Realtime | `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` tanımlıysa (Vercel) | `src/net-cloud.js` + `src/bus.js` + `src/host.js` |
+
+Kurulum:
+
+```bash
+cp .env.example .env.local     # URL + anon key gir
+npm run build && npm start     # yerelde de bulut modu
+```
+
+Vercel'de aynı iki değişken proje ayarlarına eklenir; `main` dışındaki dallar da
+`dist/` olarak yayına alınabilir (`vercel.json` gerekmez: framework `vite`).
+
+**Mimari — kurucu otoriter:** Odayı açan tarayıcı, sunucudaki `server/sim.js`
+`Room` sınıfını *hiç değişmeden* çalıştırır (30 Hz adım, 15 Hz snapshot).
+Simülasyon yalnızca `io.to(code).emit(...)` üzerinden konuştuğu için bu kanal
+Supabase kanalına bağlanır:
+
+```
+misafir ──{k:'hello'|'msg'|'ping'|'bye'}──▶ host tarayıcısı (Room.step)
+misafir ◀──{k:'out', to?}── Supabase kanalı ◀── snapshot / lobby / events
+```
+
+- Kanal adı: `ca:<ODA KODU>` (broadcast + presence; tablo/şema gerekmez).
+- Oda doluluk sınırı, spawn seçimi, puanlama ve trolleme kuralları sunucudaki
+  kodun aynısıdır — istemci yalnızca hareket önerir.
+- Gecikme `ping/pong` ile ölçülür (`net.latency`), istemci snapshot gecikmesini
+  telafi etmeye devam eder (bkz. *Titreşimsiz kamera*).
+- Kurucunun sekmesi kapanırsa oda kapanır: misafirler "bağlantı koptu" görür.
+
 ---
 
 ## 🎯 Oyun döngüsü
@@ -102,6 +138,9 @@ Mobilde: sol yarı sürükle = yürü, sağ yarı sürükle = bak, alt slotlara 
 
 ```
 server/index.js     HTTP statik sunucu + WebSocket oda yönetimi (tek port)
+src/net-cloud.js    Supabase Realtime istemcisi (Net ile aynı arayüz)
+src/bus.js          Realtime broadcast/presence sarmalayıcı (+ test için LocalBus)
+src/host.js         Tarayıcı içi otoriter oda: server/sim.js Room + 30 Hz döngü
 server/sim.js       Yetkili oyun simülasyonu: hayvan AI, çarpışma, yakalama, trolleme
 shared/config.js    Hayvan/araç/denge ayarları (sunucu + istemci ortak)
 shared/map.js       Harita verisi + çarpışma çözümü (ortak, deterministik)
@@ -147,7 +186,8 @@ node tools/staticcheck.mjs    # DOM id'leri, HUD metotları, olay eşleşmeleri
 node tools/simtest.mjs 60     # sunucuya bağlanıp 60 sn otomatik oynar (sunucu açık olmalı)
 node tools/clienttest.mjs     # jsdom + sahte renderer ile istemcinin tamamını çalıştırır
 npm test                      # statik + 3D + istemci testleri
-node tools/mptest.mjs         # iki oyuncu + trolleme testi
+node tools/mptest.mjs         # iki oyuncu + trolleme testi (WebSocket)
+node tools/mptest-cloud.mjs   # bulut protokolü: host/misafir el sıkışma, snapshot, ayrılma (ağsız)
 node tools/revivetest.mjs     # yaralı arkadaşı kaldırma testi
 ROUND_TIME=20 node server/index.js   # kısa tur (test için)
 ```

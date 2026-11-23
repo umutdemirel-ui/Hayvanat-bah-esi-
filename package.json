@@ -9,9 +9,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server/index.js",
-    "test": "node tools/staticcheck.mjs && node tools/rendertest.mjs && node tools/clienttest.mjs"
+    "test": "node tools/staticcheck.mjs && node tools/rendertest.mjs && node tools/clienttest.mjs && node tools/mptest-cloud.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.2",
     "three": "^0.169.0",
     "ws": "^8.18.0"
   },

@@ -5,6 +5,7 @@ import { Game } from './game.js';
 import { Hud } from './hud.js';
 import { Audio } from './audio.js';
 import { Net } from './net.js';
+import { CloudNet } from './net-cloud.js';
 import { Input } from './input.js';
 import './style.css';
 
@@ -34,7 +35,20 @@ window.addEventListener('unhandledrejection', (e) => {
 
 const audio = new Audio();
 const hud = new Hud();
-const net = new Net();
+
+// ---------------------------------------------------------------------------
+// Taşıyıcı seçimi
+//   • Supabase anahtarları varsa  → bulut çok oyunculu (Vercel / statik dağıtım)
+//   • yoksa                        → yerel WebSocket sunucusu (npm run dev)
+//   VITE_TRANSPORT=ws|cloud ile elle zorlanabilir.
+// ---------------------------------------------------------------------------
+const SUPA_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const TRANSPORT = import.meta.env.VITE_TRANSPORT || ((SUPA_URL && SUPA_KEY) ? 'cloud' : 'ws');
+const net = TRANSPORT === 'cloud'
+  ? new CloudNet({ url: SUPA_URL, key: SUPA_KEY })
+  : new Net();
+net.transport = TRANSPORT;
 const canvas = $('scene');
 const game = new Game(canvas, hud, audio, net);
 const input = new Input(canvas);
@@ -121,7 +135,7 @@ $('btnCreate').addEventListener('click', async () => {
   audio.play('click');
   if (!(await ensureConnection())) return;
   state.pendingSolo = false;
-  net.create(getName());
+  net.create(getName(), { solo: false });
 });
 
 $('btnSolo').addEventListener('click', async () => {
@@ -129,7 +143,7 @@ $('btnSolo').addEventListener('click', async () => {
   audio.play('click');
   if (!(await ensureConnection())) return;
   state.pendingSolo = true;
-  net.create(getName());
+  net.create(getName(), { solo: true });
 });
 
 $('btnJoinMode').addEventListener('click', () => {
