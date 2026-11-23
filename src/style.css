@@ -247,6 +247,15 @@ kbd {
 .chip .cap-bar { width: 26px; height: 4px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; overflow: hidden; }
 .chip .cap-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--amber), #ff5a2e); width: 0; transition: width 0.2s; }
 .chip.warn { border-color: rgba(255, 90, 46, 0.7); box-shadow: 0 0 12px rgba(255, 90, 46, 0.25); }
+.chip.enraged {
+  border-color: #ff3a2a; color: #ffd5cf;
+  box-shadow: 0 0 16px rgba(255, 58, 42, 0.6);
+  animation: enragePulse 0.85s ease-in-out infinite;
+}
+@keyframes enragePulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 58, 42, 0.4); }
+  50% { box-shadow: 0 0 22px rgba(255, 58, 42, 0.85); }
+}
 .chip.caught { opacity: 0.32; border-color: rgba(110, 240, 122, 0.5); }
 .chip.caught .name { text-decoration: line-through; }
 
@@ -274,6 +283,7 @@ kbd {
 .tag.bad { background: rgba(255, 77, 77, 0.28); color: #ffc7c7; }
 .tag.net { background: rgba(220, 220, 190, 0.28); color: #f2f0d5; }
 .tag.rev { background: rgba(110, 240, 122, 0.24); color: #c9ffd0; }
+.tag.streak { background: rgba(255, 176, 46, 0.3); color: #ffe0a8; }
 
 #minimapWrap {
   position: absolute; bottom: 104px; right: 18px;
@@ -342,6 +352,18 @@ kbd {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
 #toolbar, #trollbar { display: flex; gap: 8px; }
+
+#stamina {
+  width: 250px; height: 7px; border-radius: 5px; overflow: hidden;
+  background: rgba(6, 20, 14, 0.72); border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+#stamina i {
+  display: block; height: 100%; width: 100%;
+  background: linear-gradient(90deg, #3ddc84, #a8f05c);
+  transition: width 0.08s linear, background 0.2s;
+}
+#stamina.low i { background: linear-gradient(90deg, #ff8a3d, #ff4d4d); }
 .slot {
   pointer-events: auto;
   position: relative; width: 74px; height: 74px;

@@ -66,7 +66,7 @@
           <div class="help-grid">
             <section>
               <h3>🎯 Amaç</h3>
-              <p>7 dakika içinde kaçan <b>10 hayvanı</b> yakala. Her hayvanın bir <b>yakalama göstergesi</b> var:
+              <p>7 dakika içinde kaçan <b>11 hayvanı</b> yakala. Her hayvanın bir <b>yakalama göstergesi</b> var:
                 ağ attıkça dolar. Dolunca hayvan kamyona gider ve puanı senin olur.</p>
               <p class="dim">Yakalamadan önce hayvanı <b>yavaşlat</b> ya da <b>oyala</b>: şırınga, yem, kapan. Yavaş/oyalanmış hayvana ağ atmak 2 kat daha etkili.</p>
             </section>
@@ -74,10 +74,15 @@
               <h3>🧠 Strateji</h3>
               <ul>
                 <li><b>Köşeye sıkıştır:</b> Hayvanlar kaçar, duvar önünde yavaşlar.</li>
-                <li><b>Yem kur:</b> Hayvan yemeye gelir, 5 sn kıpırdamaz.</li>
+                <li><b>Yem kur:</b> Hayvan yemeye gelir, 6 sn kıpırdamaz. <kbd>R</kbd> ile yem çeşidini değiştir —
+                  <b>diyeti tutan yem</b> (🍖 et, 🐟 balık, 🍎 meyve, 🌿 ot) çok daha geniş alandan çeker.</li>
                 <li><b>Maytap at:</b> Hayvanları korkutup arkadaşına doğru sürükle.</li>
                 <li><b>2 kişi yakın ol:</b> Aynı hayvanı yakalarken ekip bonusu +%25 puan.</li>
                 <li>Kaplan <b>pusu</b> kurar; goril <b>seni fırlatır</b>; maymun <b>eşyanı çalar</b> (yakalarsan geri gelir!).</li>
+                <li><b>Ayı</b> pençesiyle savurur (ağır hasar), <b>timsah</b> ısırığı sersemletip yavaşlatır. İkisi de sudan/kamıştan çıkar.</li>
+                <li><b>Öfke:</b> Yakalama göstergesi %70'i geçen hayvan 8 saniye yakalanmazsa <b>öfkelenir</b> —
+                  daha hızlı, daha çok hasar. Göstergedeki 😡 ve kırmızı hale uyarır.</li>
+                <li><b>Seri:</b> 30 saniye içinde art arda yakalarsan her yakalama <b>+%8</b> fazla puan (en çok +%24).</li>
               </ul>
             </section>
             <section>
@@ -96,11 +101,12 @@
               <h3>⌨️ Kontroller</h3>
               <div class="keys">
                 <div><kbd>W A S D</kbd> Hareket</div>
-                <div><kbd>Shift</kbd> Koş</div>
+                <div><kbd>Shift</kbd> Koş (nefes barı biter)</div>
                 <div><kbd>Fare</kbd> Bakış</div>
                 <div><kbd>Sol Tık / 1</kbd> Ağ</div>
                 <div><kbd>2</kbd> Şırınga</div>
                 <div><kbd>3</kbd> Yem</div>
+                <div><kbd>R</kbd> Yem çeşidi</div>
                 <div><kbd>4</kbd> Kapan</div>
                 <div><kbd>V</kbd> İt</div>
                 <div><kbd>B</kbd> Muz kabuğu</div>
@@ -108,6 +114,7 @@
                 <div><kbd>E (basılı)</kbd> Arkadaşını kaldır</div>
                 <div><kbd>Q</kbd> Duygu ifadesi</div>
                 <div><kbd>M</kbd> Harita büyüt</div>
+                <div><kbd>Tekerlek</kbd> Kamera yakınlaştır</div>
                 <div><kbd>H</kbd> Yardım</div>
               </div>
             </section>
@@ -170,14 +177,16 @@
         <div id="prompt"></div>
 
         <div id="bottomBar">
+          <div id="stamina" title="Koşu enerjisi — Shift ile koş"><i></i></div>
           <div id="toolbar"></div>
           <div id="trollbar"></div>
         </div>
 
         <div id="hudHint">
-          <span><kbd>1</kbd>–<kbd>4</kbd> araç</span>
+          <span><kbd>1</kbd>–<kbd>4</kbd> araç · <kbd>R</kbd> yem çeşidi</span>
           <span><kbd>E</kbd> arkadaşını kaldır</span>
           <span><kbd>H</kbd> yardım</span>
+          <span><kbd>Shift</kbd> koş</span>
           <span><kbd>Esc</kbd> fare</span>
         </div>
 

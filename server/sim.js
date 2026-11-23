@@ -2,7 +2,7 @@
 // Oyun simülasyonu — sunucu yetkili (authoritative)
 // ---------------------------------------------------------------------------
 import {
-  WORLD, ROUND, SPECIES, ANIMAL_SPAWNS, COLORS,
+  WORLD, ROUND, SPECIES, ANIMAL_SPAWNS, COLORS, TOOLS,
   clamp, dist2, rand,
 } from '../shared/config.js';
 import { MAP, resolveCollisions } from '../shared/map.js';
@@ -52,6 +52,7 @@ function makeAnimal(spawn, i) {
     stam: 1,
     lastNetAt: 0,
     growlAt: 0,
+    enraged: false,
     iframeUntil: 0,
     netHitters: [],
     idx: i,
@@ -118,6 +119,8 @@ export class Room {
       iframeUntil: 0,
       netLockUntil: 0,
       regen: { dart: 0, bait: 0, trap: 0 },
+      streak: 0,
+      lastCatchAt: -999,
       moving: 0,
       sprint: 0,
       lastMoveAt: Date.now(),
@@ -192,6 +195,7 @@ export class Room {
       p.netUntil = 0; p.slipUntil = 0; p.dizzyUntil = 0; p.stunUntil = 0; p.slowUntil = 0;
       p.iframeUntil = 0; p.netLockUntil = 0;
       p.regen = { dart: 0, bait: 0, trap: 0 };
+      p.streak = 0; p.lastCatchAt = -999;
       p.revive = null; p.reward = null;
     }
     this.pushEvent({ kind: 'start' });
@@ -306,6 +310,7 @@ export class Room {
     if (!cfg) return;
     p.cds[m.tool] = this.t + cfg.cd;
     if (cfg.charge) p.charges[cfg.charge]--;
+    this.pushEvent({ kind: 'anim', id: p.id, act: m.tool });
 
     let yaw = Number.isFinite(m.yaw) ? m.yaw : p.yaw;
     let dirX = Math.sin(yaw), dirZ = Math.cos(yaw);
@@ -348,13 +353,16 @@ export class Room {
           life: 0.4, spin: 0,
         });
         break;
-      case 'bait':
+      case 'bait': {
+        const kinds = TOOLS.bait.kinds.map((k) => k.k);
+        const kind = kinds.includes(m.kind) ? m.kind : 'et';
         this.baits.push({
           id: uid(), owner: p.id, x: p.x + dirX * 1.8, z: p.z + dirZ * 1.8,
-          life: 14, captured: 0, eaters: 0,
+          life: 14, captured: 0, eaters: 0, kind,
         });
         this.pushEvent({ kind: 'sfx', sfx: 'bait', x: p.x, z: p.z });
         break;
+      }
       case 'trap':
         this.traps.push({
           id: uid(), owner: p.id, x: p.x + dirX * 1.6, z: p.z + dirZ * 1.6,
@@ -514,9 +522,15 @@ export class Room {
     const base = Math.round(sp.points * teamBonus);
     const owner = this.players.get(ownerId);
     const hitters = a.netHitters.filter((h) => this.players.has(h));
+    let gain = base;
+    let streak = 0;
     if (owner) {
+      streak = (this.t - (owner.lastCatchAt ?? -999) < 30) ? (owner.streak || 0) + 1 : 0;
+      owner.streak = streak;
+      owner.lastCatchAt = this.t;
+      gain = Math.round(base * (1 + Math.min(3, streak) * 0.08));
       owner.catches++;
-      owner.score += base;
+      owner.score += gain;
       if (a.lootItems && a.lootItems.length) {
         const maxes = { dart: 4, bait: 4, trap: 3 };
         for (const item of a.lootItems) {
@@ -537,13 +551,13 @@ export class Room {
       const hp = this.players.get(h);
       if (!hp) continue;
       hp.assists++;
-      hp.score += Math.round(base * 0.25);
+      hp.score += Math.round(gain * 0.25);
       this.pushEvent({ kind: 'assist', id: h, animalId: a.id });
     }
-    this.caught.push({ species: a.species, by: ownerId, byName: owner ? owner.name : '?', points: base });
+    this.caught.push({ species: a.species, by: ownerId, byName: owner ? owner.name : '?', points: gain });
     this.pushEvent({
       kind: 'catch', animalId: a.id, species: a.species, by: ownerId,
-      byName: owner ? owner.name : '?', points: base, x: a.x, z: a.z,
+      byName: owner ? owner.name : '?', points: gain, base, streak, x: a.x, z: a.z,
       teamBonus: teamBonus > 1,
     });
 
@@ -741,8 +755,10 @@ export class Room {
       for (const a of this.animals) {
         if (a.eatUntil > this.t) continue;
         if (dist2(a.x, a.z, b.x, b.z) < 1.6 * 1.6) {
-          a.eatUntil = this.t + 5;
-          a.anger = clamp(a.anger - 0.3, 0, 1.5);
+          const match = b.kind === SPECIES[a.species]?.diet;
+          a.eatUntil = this.t + (match ? 6 : 3.5);
+          a.anger = clamp(a.anger - (match ? 0.42 : 0.18), 0, 1.5);
+          if (match) a.capture = clamp(a.capture + 6, 0, 100);
           a.wanderX = b.x; a.wanderZ = b.z;
           this.pushEvent({ kind: 'eating', animalId: a.id, species: a.species, x: a.x, z: a.z });
           eaten = true;
@@ -843,6 +859,16 @@ export class Room {
         if (d < nd) { nd = d; near = p; }
       }
 
+      // çok yakalanmış ama yakalanamamış hayvan öfkelenir
+      if (a.capture >= 70 && this.t - (a.lastNetAt || 0) > 8 && !a.enraged) {
+        a.enraged = true;
+        a.anger = 1.5;
+        a.eatUntil = 0;
+        a.stuckUntil = Math.min(a.stuckUntil, this.t + 1);
+        this.pushEvent({ kind: 'enrage', animalId: a.id, species: a.species, x: a.x, z: a.z });
+      }
+      if (a.enraged && a.capture < 60) a.enraged = false;
+
       // yakalama göstergesi zamanla sönümlenir (komitmen ol)
       if (a.capture > 0 && a.capture < 100 && this.t - (a.lastNetAt || 0) > 9) {
         a.capture = Math.max(0, a.capture - dt * 1.8);
@@ -900,10 +926,14 @@ export class Room {
 
       // yem arama (saldırmıyorsa)
       if (mode === 'roam' || (mode === 'flee' && a.anger < 0.4)) {
-        let best = null, bd = 15 * 15;
+        let best = null, bd = 10 * 10;
+        const diet = SPECIES[a.species]?.diet;
         for (const b of this.baits) {
-          const d = dist2(a.x, a.z, b.x, b.z);
-          if (d < bd) { bd = d; best = b; }
+          const match = b.kind === diet;
+          const reach = match ? 19 : 9;
+          let d = dist2(a.x, a.z, b.x, b.z);
+          if (!match) d *= 3.4;            // diyeti tutmayan yem çok zayıf çeker
+          if (d < bd && d < reach * reach) { bd = d; best = b; }
         }
         if (best) {
           mode = 'seek';
@@ -958,7 +988,7 @@ export class Room {
       const running = mode === 'flee' || mode === 'chase' || mode === 'seek';
       if (running) a.stam = Math.max(0, a.stam - dt * 0.13);
       else a.stam = Math.min(1, a.stam + dt * 0.26);
-      const stamFactor = 0.6 + 0.4 * a.stam;
+      const stamFactor = (0.6 + 0.4 * a.stam) * (a.enraged ? 1.22 : 1);
 
       // hareket
       const spd = mode === 'stuck' || mode === 'eat' ? 0 : speed * stamFactor;
@@ -987,10 +1017,10 @@ export class Room {
       if (near && mode === 'chase' && nd < sp.attackRange + 0.4 && a.attackCd <= 0 && !slowed) {
         a.attackCd = sp.ambush ? 2.1 : 2.6;
         const netted = near.netUntil > this.t;
-        let dmg = sp.attackDamage * (netted ? 1.5 : 1);
+        let dmg = sp.attackDamage * (netted ? 1.5 : 1) * (a.enraged ? 1.25 : 1);
         if (sp.ambush) dmg *= 1.15;
         this.hitPlayer(near, dmg, a.x, a.z, a.species, {
-          force: sp.ambush ? 14 : sp.grabber ? 16 : 10,
+          force: sp.heavy ? 19 : sp.ambush ? 15 : sp.grabber ? 16 : 10,
         });
         this.pushEvent({
           kind: 'attack', animalId: a.id, species: a.species,
@@ -1003,6 +1033,15 @@ export class Room {
         if (sp.grabber && !near.downed) {
           near.stunUntil = Math.max(near.stunUntil, this.t + 1.1);
           this.pushEvent({ kind: 'grab', id: near.id, animalId: a.id });
+        }
+        if (sp.heavy && !near.downed) {
+          near.stunUntil = Math.max(near.stunUntil, this.t + 0.75);
+          this.pushEvent({ kind: 'heavy', id: near.id, animalId: a.id, species: a.species });
+        }
+        if (sp.crush && !near.downed) {
+          near.stunUntil = Math.max(near.stunUntil, this.t + 1.15);
+          near.slowUntil = Math.max(near.slowUntil, this.t + 4);
+          this.pushEvent({ kind: 'crush', id: near.id, animalId: a.id });
         }
         a.anger = clamp(a.anger - 0.1, 0, 2);
       }
@@ -1051,7 +1090,7 @@ export class Room {
         },
         rv: p.revive ? +Math.min(1, p.revive.progress / WORLD.reviveTime).toFixed(2) : 0,
         em: p.emoteUntil > this.t ? p.emote : null,
-        cat: p.catches, as: p.assists, rev: p.revives,
+        cat: p.catches, as: p.assists, rev: p.revives, sk: p.streak || 0,
       });
     }
     return {
@@ -1064,7 +1103,7 @@ export class Room {
       animals: this.animals.map((a) => ({
         id: a.id, s: a.species,
         x: +a.x.toFixed(2), z: +a.z.toFixed(2), yaw: +a.yaw.toFixed(2),
-        cap: Math.round(a.capture), mv: a.moving, ti: +a.stam.toFixed(2),
+        cap: Math.round(a.capture), mv: a.moving, ti: +a.stam.toFixed(2), en: a.enraged ? 1 : 0,
         sl: a.slowUntil > this.t, st: a.stuckUntil > this.t,
         ea: a.eatUntil > this.t, lo: a.loot,
       })),
@@ -1072,7 +1111,7 @@ export class Room {
         id: p.id, k: p.kind, x: +p.x.toFixed(1), z: +p.z.toFixed(1), sp: +p.spin.toFixed(2),
       })),
       traps: this.traps.map((t) => ({ id: t.id, x: +t.x.toFixed(1), z: +t.z.toFixed(1), o: t.owner })),
-      baits: this.baits.map((b) => ({ id: b.id, x: +b.x.toFixed(1), z: +b.z.toFixed(1), o: b.owner })),
+      baits: this.baits.map((b) => ({ id: b.id, x: +b.x.toFixed(1), z: +b.z.toFixed(1), o: b.owner, k: b.kind })),
       peels: this.peels.map((p) => ({ id: p.id, x: +p.x.toFixed(1), z: +p.z.toFixed(1) })),
       bombs: this.bombs.map((b) => ({ id: b.id, x: +b.x.toFixed(1), z: +b.z.toFixed(1), f: Math.max(0, +(b.fuse - this.t).toFixed(2)) })),
       caught: this.caught.length,

@@ -149,6 +149,19 @@ export class Audio {
         this.noise({ dur: 0.55, gain: 0.12 * v, freq: 700, sweepTo: 180, type: 'lowpass', q: 3 });
         break;
       }
+      case 'enrage':
+        this.tone({ freq: 70, type: 'sawtooth', dur: 1.1, gain: 0.26 * v, slideTo: 40, attack: 0.08 });
+        this.tone({ freq: 140, type: 'square', dur: 0.9, gain: 0.1 * v, slideTo: 70 });
+        this.noise({ dur: 1.0, gain: 0.16 * v, freq: 500, sweepTo: 120, type: 'lowpass', q: 4 });
+        break;
+      case 'heavy':
+        this.noise({ dur: 0.35, gain: 0.34 * v, freq: 320, sweepTo: 60, type: 'lowpass', q: 2 });
+        this.tone({ freq: 110, type: 'square', dur: 0.3, gain: 0.22 * v, slideTo: 45 });
+        break;
+      case 'crush':
+        this.noise({ dur: 0.28, gain: 0.3 * v, freq: 1600, sweepTo: 180, type: 'bandpass', q: 1.2 });
+        this.tone({ freq: 200, type: 'sawtooth', dur: 0.4, gain: 0.2 * v, slideTo: 50 });
+        break;
       case 'hurt':
         this.tone({ freq: 220, type: 'square', dur: 0.18, gain: 0.18 * v, slideTo: 90 });
         this.noise({ dur: 0.18, gain: 0.18 * v, freq: 600, sweepTo: 120 });

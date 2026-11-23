@@ -27,6 +27,7 @@ export class Hud {
       damage: $('damageFlash'),
       netOverlay: $('netOverlay'),
       crosshair: $('crosshair'),
+      stamina: $('stamina'),
     };
     this.ctx = this.el.minimap.getContext('2d');
     this.myId = null;
@@ -223,7 +224,10 @@ export class Hud {
       }
       const bar = chip.querySelector('.cap-bar i');
       bar.style.width = `${a.cap}%`;
+      const em = chip.querySelector('.em');
+      if (em) em.textContent = a.en ? '😡' : SPECIES[a.s].emoji;
       chip.classList.toggle('warn', a.cap >= 60);
+      chip.classList.toggle('enraged', !!a.en);
     }
     for (const [id, chip] of this.chips) {
       if (!seen.has(id) && !chip.classList.contains('caught')) {
@@ -261,6 +265,7 @@ export class Hud {
       if (p.st?.dizzy) tags.push('<span class="tag bad">SERSEM</span>');
       if (p.st?.slip) tags.push('<span class="tag bad">KAYDI</span>');
       if (p.st?.slow) tags.push('<span class="tag bad">YAVAŞ</span>');
+      if (p.sk >= 2) tags.push(`<span class="tag streak">🔥 SERİ x${p.sk}</span>`);
       if (p.rv > 0) tags.push(`<span class="tag rev">KALDIRILIYOR ${Math.round(p.rv * 100)}%</span>`);
       row.className = `tp${p.id === this.myId ? ' me' : ''}${p.d ? ' down' : ''}`;
       row.innerHTML = `
@@ -435,6 +440,23 @@ export class Hud {
   }
 
   setNet(on) { this.el.netOverlay.classList.toggle('on', on); }
+
+  setBaitKind(kind) {
+    const slot = this.slots.get('bait');
+    if (!slot || !kind) return;
+    const em = slot.querySelector('.t-emoji');
+    if (em) em.textContent = kind.emoji;
+    slot.title = `${TOOLS.bait.name} (${kind.name}) — ${TOOLS.bait.desc}`;
+    slot.classList.toggle('bait-match', true);
+  }
+
+  setStamina(v) {
+    const el = this.el.stamina;
+    if (!el) return;
+    const fill = el.firstElementChild;
+    if (fill) fill.style.width = `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
+    el.classList.toggle('low', v < 0.22);
+  }
 
   setBadges(list) {
     this.el.badges.innerHTML = list.map((b) => `<span class="badge">${b}</span>`).join('');

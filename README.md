@@ -42,15 +42,23 @@ DEV=1 npm run dev  # http://localhost:3000
 | 🐘 Fil | 180 | Kapanları ezer, savurur | Yem + ekip |
 | 🐧 Penguen | 65 | Zikzak kaçar | Kapan |
 | 🦚 Tavus Kuşu | 110 | Kısa mesafe uçar | Köşeye sıkıştır |
+| 🐻 Ayı | 165 | Ağır pençe (44 hasar) + sersemletme | Kapan + ekip |
+| 🐊 Timsah | 175 | Pusu + kırıcı ısırık (stun + yavaşlatma) | Uzaktan ağ, yem |
 
 ### Strateji katmanı
-- **Yem (3):** Hayvan yemeye gelir, 5 sn kıpırdamaz → ağ **2 kat** etkili.
+- **Yem (3):** Hayvan yemeye gelir, 6 sn kıpırdamaz → ağ **2 kat** etkili.
+- **Yem çeşidi (R):** 🍖 et · 🐟 balık · 🍎 meyve · 🌿 ot. Hayvanın **diyetini tutan** yem 19 m'den çeker (+6 dolum);
+  tutmayan yem neredeyse görmezden gelinir. Penguen/ayı balık, timsah/aslan/kaplan/yılan et, fil/devekuşu/tavus ot, goril/maymun meyve.
 - **Şırınga (2):** Hayvanı 6 sn yavaşlatır → ağ **+16** fazla doldurur.
 - **Kapan (4):** Hayvanı 5 sn kilitler, dolum +30. Fil kapanı ezer!
 - **Maytap (G):** Hayvanları korkutup kaçırır — sürüyü arkadaşına doğru sürükleyebilirsin.
 - **Yorulma:** Uzun kovalamacada hayvanın nefesi kesilir, yavaşlar. Devekuşu bile yakalanır.
 - **Ekip bonusu:** Yakalama anında 8 m içinde 2+ bekçi varsa **+%25 puan**.
 - **Yakalama sönümü:** Hayvanı 9 sn ağlamazsan göstergesi erimeye başlar — commit et.
+- **Öfke:** Göstergesi %70'i geçen hayvan 8 sn yakalanmazsa **öfkelenir** (+%22 hız, +%25 hasar, kırmızı hale + 😡 çip).
+  %60'ın altına inerse sakinleşir.
+- **Seri bonusu:** 30 sn içinde art arda yakalama → her adım **+%8** puan (en çok +%24), takım panelinde 🔥 rozeti.
+- **Stamina:** `Shift` koşusu nefes barını tüketir; bar bitince yürümek zorunda kalırsın (alt ortadaki bar).
 
 ### 😈 Trolleme (oyunun kalbi)
 | Yöntem | Etki |
@@ -74,14 +82,16 @@ DEV=1 npm run dev  # http://localhost:3000
 
 | Tuş | İşlev |
 |---|---|
-| `W A S D` | Hareket · `Shift` koş |
+| `W A S D` | Hareket · `Shift` koş (stamina harcar) |
 | Fare | Bakış (tıkla → fare kilidi; kilitlenmezse **sağ tıkla sürükle** veya **ok tuşları**) |
 | `Sol Tık` / `1` | Ağ |
 | `2` / `3` / `4` | Şırınga / Yem / Kapan |
 | `V` `B` `G` | İt / Muz kabuğu / Maytap |
 | `E` (basılı) | Arkadaşını kaldır |
 | `Z X C F T` | Hızlı duygu ifadeleri (yardım, gülme, pardon, benim, izle) |
+| `R` | Yem çeşidini değiştir (et / balık / meyve / ot) |
 | `M` | Harita büyüt · `H` yardım · `P` ses · `Esc` fareyi bırak |
+| Fare tekerleği | Kamerayı yakınlaştır / uzaklaştır |
 
 Mobilde: sol yarı sürükle = yürü, sağ yarı sürükle = bak, alt slotlara dokun = araç.
 
@@ -107,6 +117,13 @@ tools/              Geliştirici testleri (aşağıya bak)
 - **Sunucu yetkili:** Hayvanlar, isabetler, yakalamalar ve puanlar sunucuda hesaplanır; istemci sadece hareketini önerir (hız sınırı + duvar doğrulaması ile).
 - 30 Hz simülasyon, 15 Hz snapshot; istemci interpolasyon + yerel hareket tahmini.
 - Tüm görseller ve sesler kodla üretilir — hiçbir dış varlık yok.
+
+### Karakter animasyonu
+Bekçi iskeletli: kalça → gövde → kafa + 2 kemikli bacak/kollar, sırt çantası, kapşon ve elde ağ.
+`models.js` içindeki `animate(t, { moving, speed, sprint, downed, netted, slip, dizzy, revive, action, hurt })`
+yürüme/koşma/idle nefes, düşme-kalkma, kayma dönüşü, sersem sallanması ve araç hareketleri
+(`net`, `dart`, `bait`, `trap`, `shove`, `peel`, `fire`) üretir. Hareket her karede yumuşatılır
+(`ease`), böylece ağ atışı, şırınga ve kaldırma hareketleri kesintisiz görünür.
 
 ### Geliştirici testleri
 ```bash

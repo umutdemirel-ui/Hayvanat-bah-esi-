@@ -69,6 +69,18 @@ export const SPECIES = {
     fear: 0.9, diet: 'balik', danger: 1, attackRange: 1.6, attackDamage: 8,
     jitter: true, desc: 'Zikzak kaçar, ağ atmak zor. Kapan kur.',
   },
+  ayi: {
+    name: 'Ayı', emoji: '🐻', points: 165, speed: 5.6, radius: 1.2,
+    color: 0x6b4a30, dark: 0x46301f, aggression: 0.78, aggroRange: 17,
+    fear: 0.25, diet: 'balik', danger: 3, attackRange: 2.4, attackDamage: 44,
+    heavy: true, desc: 'Ağır pençe, sert savurur. Kapan + şırınga şart.',
+  },
+  timsah: {
+    name: 'Timsah', emoji: '🐊', points: 175, speed: 5.0, radius: 1.15,
+    color: 0x4f7030, dark: 0x2f4a1c, aggression: 0.88, aggroRange: 15,
+    fear: 0.12, diet: 'et', danger: 3, attackRange: 2.3, attackDamage: 38,
+    ambush: true, crush: true, desc: 'Isırıp sersemletir. Uzaktan ağ at, yaklaşma!',
+  },
   tavus: {
     name: 'Tavus Kuşu', emoji: '🦚', points: 110, speed: 5.8, radius: 0.72,
     color: 0x1f8f8f, dark: 0x144e86, aggression: 0.2, aggroRange: 12,
@@ -88,7 +100,8 @@ export const ANIMAL_SPAWNS = [
   { species: 'fil', x: 48, z: 20 },
   { species: 'penguen', x: -4, z: 30 },
   { species: 'tavus', x: 20, z: 16 },
-  { species: 'maymun', x: -18, z: -6 },
+  { species: 'ayi', x: 48, z: -24 },
+  { species: 'timsah', x: -26, z: 46 },
 ];
 
 export const DIET_LABEL = {
@@ -109,7 +122,14 @@ export const TOOLS = {
   },
   bait: {
     name: 'Yem', key: '3', emoji: '🍖', cooldown: 6.5, charges: 'bait', max: 4, regen: 22,
-    desc: 'Yem bırak; hayvan yemeye gelir (yakalamak kolaylaşır).',
+    desc: 'Yem bırak; hayvan yemeye gelir. R ile çeşit değiştir — diyetini tut!',
+    // R ile döndürülür; hayvanın diyeti tutarsa çok daha güçlü çeker
+    kinds: [
+      { k: 'et', name: 'Et', emoji: '🍖', color: 0xd4563f },
+      { k: 'balik', name: 'Balık', emoji: '🐟', color: 0x5ab7e8 },
+      { k: 'meyve', name: 'Meyve', emoji: '🍎', color: 0xe8503f },
+      { k: 'ot', name: 'Ot', emoji: '🌿', color: 0x7fce55 },
+    ],
   },
   trap: {
     name: 'Kapan', key: '4', emoji: '🪤', cooldown: 8.5, charges: 'trap', max: 3, regen: 30,

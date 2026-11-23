@@ -44,7 +44,38 @@ const lobbyA = await A.evaluate(() => ({
 console.log('A lobi:', JSON.stringify(lobbyA));
 
 await A.evaluate(() => document.getElementById('btnStart').click());
-await wait(3500);
+await wait(1400);
+// A, B'yi ağa dolasın (trolleme) — B yerde değilken
+for (let i = 0; i < 6; i++) {
+  const downed = await B.evaluate(() => !!window.__zoo.game.me.downed);
+  if (!downed) break;
+  await wait(700);
+}
+const bPos = await B.evaluate(() => { const g = window.__zoo.game; return { id: g.myId, x: g.me.x, z: g.me.z }; });
+await A.evaluate((bp) => {
+  const g = window.__zoo.game;
+  // sunucu yetkili: gerçekten yaklaş
+  g.me.x = bp.x + 2.2; g.me.z = bp.z + 0.4;
+  g.camYaw = Math.atan2(bp.x - g.me.x, bp.z - g.me.z);
+  for (let i = 0; i < 12; i++) g.net.send({ t: 'move', x: g.me.x, z: g.me.z, yaw: g.camYaw });
+}, bPos);
+await wait(500);
+await A.evaluate((bp) => {
+  const g = window.__zoo.game;
+  g.me.x = bp.x + 2.2; g.me.z = bp.z + 0.4;
+  g.camYaw = Math.atan2(bp.x - g.me.x, bp.z - g.me.z);
+  g.net.send({ t: 'act', tool: 'net', yaw: g.camYaw });
+}, bPos);
+await wait(1100);
+const bState = await B.evaluate(() => ({
+  netted: window.__zoo.game.me.status.net,
+  banner: document.getElementById('banner').textContent.replace(/\s+/g, ' ').trim(),
+  feed: [...document.querySelectorAll('#feed .feed-item')].map((e) => e.textContent.trim()),
+  overlay: document.getElementById('netOverlay').classList.contains('on'),
+}));
+console.log('B ağ durumu:', JSON.stringify(bState));
+await B.screenshot({ path: 'shots/13-coop-trolled.png' });
+await wait(1800);
 const stA = await A.evaluate(() => ({
   inGame: !document.getElementById('hud').classList.contains('hidden'),
   team: [...document.querySelectorAll('#teamPanel .tp')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
@@ -63,25 +94,6 @@ console.log('A oyun:', JSON.stringify(stA));
 console.log('B oyun:', JSON.stringify(stB));
 await A.screenshot({ path: 'shots/12-coop-A.png' });
 
-// A, B'yi ağa dolasın (trolleme)
-const bPos = await B.evaluate(() => { const g = window.__zoo.game; return { id: g.myId, x: g.me.x, z: g.me.z }; });
-await A.evaluate((bp) => {
-  const g = window.__zoo.game;
-  g.me.x = bp.x - 2.5; g.me.z = bp.z;
-  g.camYaw = Math.atan2(bp.x - g.me.x, bp.z - g.me.z);
-  g.net.send({ t: 'move', x: g.me.x, z: g.me.z, yaw: g.camYaw });
-}, bPos);
-await wait(300);
-await A.evaluate(() => window.__zoo.game.net.send({ t: 'act', tool: 'net', yaw: window.__zoo.game.camYaw }));
-await wait(900);
-const bState = await B.evaluate(() => ({
-  netted: window.__zoo.game.me.status.net,
-  banner: document.getElementById('banner').textContent.replace(/\s+/g, ' ').trim(),
-  feed: [...document.querySelectorAll('#feed .feed-item')].map((e) => e.textContent.trim()),
-  overlay: document.getElementById('netOverlay').classList.contains('on'),
-}));
-console.log('B ağ durumu:', JSON.stringify(bState));
-await B.screenshot({ path: 'shots/13-coop-trolled.png' });
 
 console.log('hatalar:', errs);
 await browser.close();

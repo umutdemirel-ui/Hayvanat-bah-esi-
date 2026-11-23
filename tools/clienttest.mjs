@@ -85,8 +85,11 @@ window.addEventListener('error', (e) => errors.push(e.message));
 let animalId = 100;
 const animals = ANIMAL_SPAWNS.map((s) => ({
   id: animalId++, s: s.species, x: s.x, z: s.z, yaw: 0, cap: 0, mv: 1, ti: 1,
-  sl: false, st: false, ea: false, lo: 0,
+  sl: false, st: false, ea: false, lo: 0, en: 0,
 }));
+// öfke aurası ve timsah kuyruğu da test edilsin
+animals[animals.length - 1].en = 1;
+animals[animals.length - 2].en = 1;
 
 function makeSnap(t) {
   return {
@@ -167,6 +170,9 @@ for (let i = 0; i < 240; i++) {
   // hayvanlar hareket etsin, biri yakalanmış gibi silinsin
   if (i === 60) animals.splice(0, 1);
   for (const a of animals) { a.x += Math.sin(t + a.id) * 0.05; a.z += Math.cos(t * 0.7 + a.id) * 0.05; a.cap = (a.cap + 0.7) % 100; }
+  if (i === 30) game.onEvents([{ kind: 'anim', id: 2, act: 'net' }, { kind: 'anim', id: 1, act: 'dart' }]);
+  if (i === 40) game.onEvents([{ kind: 'enrage', animalId: animals[0].id, species: animals[0].s, x: animals[0].x, z: animals[0].z }]);
+  if (i === 50) game.onEvents([{ kind: 'heavy', id: 1, x: 0, z: 6 }, { kind: 'crush', id: 2, x: 3, z: 5 }]);
   if (i % 8 === 0) game.onSnapshot(makeSnap(t));
   game.update(1 / 60);
   if (i === 120) {
@@ -193,12 +199,14 @@ check('araç slotları', q('#toolbar').children.length === 4 && q('#trollbar').c
 check('akış mesajı', q('#feed').children.length > 0);
 check('sahne mesh', game.scene.children.length > 0);
 check('oyuncu modeli', game.players.size === 2);
-check('hayvan modeli', game.animals.size === 9);
+check('hayvan modeli', game.animals.size === ANIMAL_SPAWNS.length - 1);
+check('öfke aurası', [...game.animals.values()].filter((a) => a.aura && a.aura.visible).length === 2);
 check('mermi modeli', game.projectiles.size === 2);
 check('kapan/yem/muz/bomba', game.traps.size === 1 && game.baits.size === 1 && game.peels.size === 1 && game.bombs.size === 1);
 check('sonuç ekranı', !q('#results').classList.contains('hidden'));
 check('ağ paketleri', net.sent.length > 10);
 check('oyun içi hata yok', errors.length === 0);
+check('stamina barı', q('#stamina') && q('#stamina').firstElementChild.style.width !== '');
 
 for (const c of checks) console.log(`${c.ok ? '✅' : '❌'} ${c.name}`);
 if (errors.length) console.log('hatalar:', errors);

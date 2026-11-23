@@ -56,123 +56,417 @@ function eyes(parent, size, spread, y, z, color = 0x101010) {
 // BEKÇİ (oyuncu)
 // ===========================================================================
 export function createRanger(color) {
-  const g = new THREE.Group();
-  const root = new THREE.Group();
-  g.add(root);
+  const group = new THREE.Group();
+  const root = new THREE.Group();          // yalpalamayı/düşmeyi yönetir
+  group.add(root);
 
   const skin = 0xf3c9a0;
   const khaki = color;
-  const dark = new THREE.Color(color).multiplyScalar(0.45).getHex();
+  const shade = new THREE.Color(color).multiplyScalar(0.62).getHex();
+  const dark = new THREE.Color(color).multiplyScalar(0.34).getHex();
+  const pants = 0x3b4a34;
+  const bootColor = 0x2a2420;
 
-  // bacaklar
-  const legGeo = new THREE.CapsuleGeometry(0.13, 0.42, 4, 8);
+  // ---------- kalça ----------
+  const hips = new THREE.Group();
+  hips.position.y = 0.8;
+  root.add(hips);
+
+  const pelvis = box(0.4, 0.19, 0.27, pants);
+  hips.add(pelvis);
+  const belt = box(0.43, 0.075, 0.3, 0x4a3524);
+  belt.position.y = 0.12;
+  hips.add(belt);
+  const buckle = box(0.075, 0.06, 0.02, 0xd8b06a);
+  buckle.position.set(0, 0.12, 0.155);
+  hips.add(buckle);
+
+  // ---------- bacaklar ----------
   const legs = [];
   for (const s of [-1, 1]) {
-    const leg = new THREE.Mesh(legGeo, mat(0x3a4a33));
-    leg.position.set(s * 0.16, 0.42, 0);
-    leg.castShadow = true;
-    root.add(leg);
-    const boot = box(0.24, 0.16, 0.32, 0x2a2420);
-    boot.position.set(s * 0.16, 0.16, 0.05);
-    root.add(boot);
-    legs.push(leg);
+    const hip = new THREE.Group();
+    hip.position.set(s * 0.125, -0.03, 0);
+    hips.add(hip);
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.095, 0.22, 4, 8), mat(pants));
+    thigh.position.y = -0.17;
+    thigh.castShadow = true;
+    hip.add(thigh);
+    const knee = new THREE.Group();
+    knee.position.y = -0.35;
+    hip.add(knee);
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.22, 4, 8), mat(pants));
+    shin.position.y = -0.15;
+    shin.castShadow = true;
+    knee.add(shin);
+    const boot = box(0.17, 0.11, 0.28, bootColor);
+    boot.position.set(0, -0.29, 0.05);
+    knee.add(boot);
+    legs.push({ hip, knee });
   }
 
-  // gövde
-  const torso = box(0.56, 0.66, 0.34, khaki);
-  torso.position.y = 1.0;
-  root.add(torso);
-  const belt = box(0.58, 0.09, 0.36, 0x4a3524);
-  belt.position.y = 0.72;
-  root.add(belt);
-  const vest = box(0.5, 0.32, 0.38, dark);
-  vest.position.set(0, 1.1, 0.01);
-  root.add(vest);
-  const badge = box(0.09, 0.09, 0.02, 0xffd166);
-  badge.position.set(-0.16, 1.18, 0.2);
-  root.add(badge);
+  // ---------- gövde ----------
+  const chest = new THREE.Group();
+  chest.position.y = 0.11;
+  hips.add(chest);
 
-  // kollar
-  const arms = [];
-  const armGeo = new THREE.CapsuleGeometry(0.1, 0.38, 4, 8);
+  const torso = box(0.42, 0.46, 0.26, khaki);
+  torso.position.y = 0.27;
+  torso.castShadow = true;
+  chest.add(torso);
+  const vest = box(0.39, 0.32, 0.3, dark);
+  vest.position.set(0, 0.33, 0.004);
+  chest.add(vest);
+  const pocket = box(0.12, 0.09, 0.02, shade);
+  pocket.position.set(-0.13, 0.29, 0.165);
+  chest.add(pocket);
+  const badge = box(0.065, 0.065, 0.02, 0xffd166);
+  badge.position.set(0.13, 0.38, 0.165);
+  chest.add(badge);
+  const pack = box(0.33, 0.35, 0.16, 0x6b5a3a);
+  pack.position.set(0, 0.31, -0.19);
+  chest.add(pack);
   for (const s of [-1, 1]) {
-    const holder = new THREE.Group();
-    holder.position.set(s * 0.36, 1.28, 0);
-    const arm = new THREE.Mesh(armGeo, mat(khaki));
-    arm.position.y = -0.24;
-    arm.castShadow = true;
-    holder.add(arm);
-    const hand = sph(0.1, skin);
-    hand.position.y = -0.48;
-    holder.add(hand);
-    root.add(holder);
-    arms.push(holder);
+    const strap = box(0.055, 0.32, 0.03, 0x4a3a24);
+    strap.position.set(s * 0.12, 0.33, -0.11);
+    strap.rotation.x = 0.12;
+    chest.add(strap);
   }
 
-  // kafa
+  // ---------- kafa ----------
   const head = new THREE.Group();
-  head.position.y = 1.52;
-  root.add(head);
-  const skull = sph(0.25, skin);
+  head.position.y = 0.58;
+  chest.add(head);
+  const neck = cyl(0.075, 0.085, 0.09, skin);
+  neck.position.y = -0.06;
+  head.add(neck);
+  const skull = sph(0.215, skin);
+  skull.scale.set(1, 1.03, 0.96);
   head.add(skull);
-  eyes(head, 0.045, 0.09, 0.04, 0.22);
-  const cap = cyl(0.24, 0.26, 0.14, dark);
-  cap.position.y = 0.18;
+  eyes(head, 0.04, 0.082, 0.03, 0.185);
+  const nose = sph(0.032, 0xd8a37a);
+  nose.position.set(0, -0.045, 0.205);
+  head.add(nose);
+  const cap = cyl(0.225, 0.238, 0.1, dark);
+  cap.position.y = 0.165;
   head.add(cap);
-  const brim = box(0.4, 0.04, 0.22, dark);
-  brim.position.set(0, 0.13, 0.2);
+  const capTop = sph(0.228, dark);
+  capTop.scale.set(1, 0.5, 1);
+  capTop.position.y = 0.2;
+  head.add(capTop);
+  const brim = box(0.35, 0.032, 0.19, dark);
+  brim.position.set(0, 0.145, 0.185);
   head.add(brim);
+  const capBadge = box(0.055, 0.055, 0.02, 0xffd166);
+  capBadge.position.set(0, 0.2, 0.215);
+  head.add(capBadge);
 
-  // ağ (sağ elde)
+  // ---------- kollar ----------
+  const arms = [];
+  for (const s of [-1, 1]) {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(s * 0.252, 0.46, 0);
+    chest.add(shoulder);
+    const deltoid = sph(0.078, khaki);
+    deltoid.position.y = -0.01;
+    shoulder.add(deltoid);
+    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.19, 4, 8), mat(khaki));
+    upper.position.y = -0.155;
+    upper.castShadow = true;
+    shoulder.add(upper);
+    const elbow = new THREE.Group();
+    elbow.position.y = -0.28;
+    shoulder.add(elbow);
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.16, 4, 8), mat(shade));
+    fore.position.y = -0.14;
+    fore.castShadow = true;
+    elbow.add(fore);
+    const hand = sph(0.075, skin);
+    hand.position.y = -0.27;
+    elbow.add(hand);
+    arms.push({ shoulder, elbow, hand });
+  }
+
+  // ---------- ağ (sağ el) ----------
   const netGroup = new THREE.Group();
-  netGroup.position.set(0.55, 0.95, 0.05);
-  netGroup.rotation.set(-0.42, 0, -0.5);
-  const stick = cyl(0.035, 0.04, 1.15, 0x8a6b3f);
-  stick.position.y = 0.1;
+  netGroup.position.set(0.03, -0.26, 0.04);
+  netGroup.rotation.set(0.34, 0, 0.17);
+  arms[1].elbow.add(netGroup);
+  const stick = cyl(0.026, 0.032, 0.9, 0x8a6b3f);
+  stick.position.y = 0.45;
   netGroup.add(stick);
-  const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.03, 6, 14), mat(0xd8d8c0));
-  hoop.position.y = 0.72;
+  const hoop = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.024, 6, 14), mat(0xd8d8c0));
+  hoop.position.y = 0.88;
   netGroup.add(hoop);
-  const mesh = new THREE.Mesh(
-    new THREE.ConeGeometry(0.25, 0.42, 10, 1, true),
-    mat(0xe8e6d0, { transparent: true, opacity: 0.42, side: THREE.DoubleSide, wireframe: false }),
+  const netMesh = new THREE.Mesh(
+    new THREE.ConeGeometry(0.19, 0.34, 10, 1, true),
+    mat(0xe8e6d0, { transparent: true, opacity: 0.4, side: THREE.DoubleSide }),
   );
-  mesh.position.y = 0.52;
-  mesh.rotation.x = Math.PI;
-  netGroup.add(mesh);
-  root.add(netGroup);
+  netMesh.position.y = 0.72;
+  netMesh.rotation.x = Math.PI;
+  netGroup.add(netMesh);
 
-  // sırt çantası
-  const pack = box(0.36, 0.4, 0.2, 0x6b5a3a);
-  pack.position.set(0, 1.06, -0.26);
-  root.add(pack);
+  // ---------- animasyon durumu ----------
+  const ACTION_DUR = { net: 0.55, dart: 0.45, bait: 0.5, trap: 0.6, shove: 0.36, peel: 0.44, fire: 0.5 };
+  const st = {
+    phase: 0,
+    lastT: 0,
+    fall: 0,
+    spin: 0,
+    slipAngle: 0,
+    wasSlip: false,
+    cur: {
+      thighL: 0, thighR: 0, kneeL: 0.05, kneeR: 0.05,
+      armLx: 0, armRx: 0, armLz: 0.14, armRz: -0.14,
+      elbowL: -0.22, elbowR: -0.3, lean: 0, twist: 0,
+      headX: 0, headY: 0, hipY: 0, hipRoll: 0, rootY: 0, fall: 0,
+    },
+  };
+  const ease = (a, b, x) => a + (b - a) * Math.max(0, Math.min(1, x));
 
   const api = {
-    group: g,
+    group,
     root,
+    hips,
+    chest,
+    head,
     legs,
     arms,
-    head,
     netGroup,
     downed: false,
-    animate(t, moving, speed = 1) {
-      const w = moving ? Math.sin(t * 9.5 * Math.min(1.4, 0.6 + speed)) : 0;
-      const amp = moving ? 0.55 : 0;
-      legs[0].rotation.x = w * amp;
-      legs[1].rotation.x = -w * amp;
-      arms[0].rotation.x = -w * amp * 0.8;
-      arms[1].rotation.x = w * amp * 0.5;
-      root.position.y = moving ? Math.abs(Math.sin(t * 9.5)) * 0.045 : 0;
-      head.rotation.z = Math.sin(t * 1.6) * 0.02;
-      if (api.downed) {
-        root.rotation.z = Math.PI * 0.42;
-        root.rotation.x = -0.25;
-        root.position.y = -0.72;
-        netGroup.rotation.x = -0.2;
+    actionDur: ACTION_DUR,
+
+    animate(t, opts = {}) {
+      const dt = Math.min(0.06, Math.max(0.008, t - st.lastT || 0.016));
+      st.lastT = t;
+
+      const moving = !!opts.moving;
+      const speed = Math.min(1.8, opts.speed ?? 1);
+      const sprint = !!opts.sprint && moving;
+      const downed = !!opts.downed;
+      const netted = !!opts.netted;
+      const slip = !!opts.slip;
+      const dizzy = !!opts.dizzy;
+      const revive = opts.revive || 0;
+      const act = opts.action || null;
+      const hurt = opts.hurt || 0;
+
+      const P = {
+        thighL: 0, thighR: 0, kneeL: 0.06, kneeR: 0.06,
+        armLx: 0, armRx: 0, armLz: 0.14, armRz: -0.14,
+        elbowL: -0.22, elbowR: -0.3, lean: 0.02, twist: 0,
+        headX: 0, headY: 0, hipY: 0, hipRoll: 0, rootY: 0,
+      };
+
+      // nefes alma
+      const breathe = Math.sin(t * 1.7) * 0.018;
+      P.lean += breathe * 0.5;
+      P.rootY += breathe * 0.2;
+
+      if (moving) {
+        const stride = sprint ? 13 : 8.4;
+        st.phase += dt * stride * speed;
+        const s = Math.sin(st.phase);
+        const amp = sprint ? 1.0 : 0.72;
+        P.thighL = s * amp;
+        P.thighR = -s * amp;
+        P.kneeL = Math.max(0, -s) * (sprint ? 1.5 : 1.05) + 0.06;
+        P.kneeR = Math.max(0, s) * (sprint ? 1.5 : 1.05) + 0.06;
+        P.armLx = -s * amp * 0.85;
+        P.armRx = s * amp * 0.85;
+        P.elbowL = -0.45 - Math.max(0, s) * (sprint ? 1.1 : 0.45);
+        P.elbowR = -0.45 - Math.max(0, -s) * (sprint ? 1.1 : 0.45);
+        P.rootY += Math.abs(Math.sin(st.phase)) * (sprint ? 0.055 : 0.03);
+        P.lean = (sprint ? 0.23 : 0.1) + breathe * 0.4;
+        P.headX = -P.lean * 0.6;
+        P.hipRoll = Math.sin(st.phase) * 0.045;
+        P.hipY = -0.01;
       } else {
-        root.rotation.z *= 0.85;
-        root.rotation.x *= 0.85;
+        P.armLx = Math.sin(t * 1.05) * 0.045;
+        P.armRx = Math.sin(t * 1.05 + 1.4) * 0.045;
+        P.armLz = 0.16;
+        P.armRz = -0.16;
+        P.hipY = Math.sin(t * 1.7) * 0.008;
+        P.headY = Math.sin(t * 0.42) * 0.1;
       }
+
+      // ---------- araç animasyonları ----------
+      if (act && ACTION_DUR[act.type]) {
+        const p = Math.min(1, act.t / ACTION_DUR[act.type]);
+        switch (act.type) {
+          case 'net':
+            if (p < 0.4) {
+              const w = p / 0.4;
+              P.armRx = ease(0, -2.3, w);
+              P.elbowR = ease(-0.3, -1.15, w);
+              P.twist = ease(0, 0.38, w);
+              P.lean -= 0.05 * w;
+            } else {
+              const w = Math.min(1, (p - 0.4) / 0.32);
+              P.armRx = ease(-2.3, 1.4, w);
+              P.elbowR = ease(-1.15, -0.1, w);
+              P.twist = ease(0.38, -0.3, w);
+              P.lean += 0.14 * w;
+            }
+            P.hipY -= 0.03;
+            break;
+          case 'dart':
+            P.armRx = p < 0.35 ? ease(0, -1.85, p / 0.35) : ease(-1.85, 0.55, (p - 0.35) / 0.5);
+            P.elbowR = -0.55;
+            P.twist = 0.14;
+            break;
+          case 'bait': {
+            const w = Math.sin(p * Math.PI);
+            P.lean = 0.05 + 0.55 * w;
+            P.hipY -= 0.11 * w;
+            P.armRx = -0.55 * w;
+            P.armLx = -0.35 * w;
+            P.elbowR = -0.1;
+            break;
+          }
+          case 'trap': {
+            const w = Math.sin(p * Math.PI);
+            P.hipY -= 0.32 * w;
+            P.kneeL += 1.15 * w;
+            P.kneeR += 1.15 * w;
+            P.thighL -= 0.58 * w;
+            P.thighR -= 0.58 * w;
+            P.armLx = -1.0 * w;
+            P.armRx = -1.0 * w;
+            P.elbowL = -0.85 * w;
+            P.elbowR = -0.85 * w;
+            P.lean = 0.08 + 0.42 * w;
+            break;
+          }
+          case 'shove': {
+            const w = Math.min(1, p / 0.22);
+            P.armLx = -1.55 * w;
+            P.armRx = -1.55 * w;
+            P.armLz = 0.05;
+            P.armRz = -0.05;
+            P.elbowL = -0.08;
+            P.elbowR = -0.08;
+            P.lean = 0.08 + 0.26 * w;
+            break;
+          }
+          case 'peel': {
+            const w = Math.sin(Math.min(1, p / 0.7) * Math.PI);
+            P.armRx = -0.35 - 1.15 * w;
+            P.armRz = -0.95 * w - 0.14;
+            P.twist = -0.22 * w;
+            break;
+          }
+          case 'fire':
+            P.armRx = p < 0.38 ? ease(0, -2.65, p / 0.38) : ease(-2.65, 0.9, (p - 0.38) / 0.62);
+            P.elbowR = -0.85;
+            P.lean = p < 0.38 ? -0.09 : 0.2;
+            P.armLx = -0.3;
+            break;
+          default:
+            break;
+        }
+      }
+
+      // ---------- durum pozları ----------
+      if (netted) {
+        P.armLz = 0.55; P.armRz = -0.55;
+        P.armLx = 0.25; P.armRx = 0.25;
+        P.elbowL = -1.2; P.elbowR = -1.2;
+        P.hipRoll = Math.sin(t * 17) * 0.055;
+      }
+      if (dizzy) {
+        P.headY = Math.sin(t * 6.2) * 0.55;
+        P.headX = Math.sin(t * 4.1) * 0.16;
+        P.hipRoll = Math.sin(t * 3.1) * 0.09;
+        P.armLz = 0.6;
+        P.armRz = -0.6;
+        P.lean = 0.06 + Math.sin(t * 2.2) * 0.06;
+      }
+      if (revive > 0) {
+        P.hipY -= 0.34;
+        P.thighL -= 0.5;
+        P.thighR -= 0.5;
+        P.kneeL += 1.5;
+        P.kneeR += 1.5;
+        P.lean = 0.42;
+        P.armLx = -1.15;
+        P.armRx = -1.15;
+        P.elbowL = -0.55;
+        P.elbowR = -0.55;
+        P.headX = 0.2;
+      }
+      if (hurt > 0) {
+        P.lean = -0.22;
+        P.headX = -0.28;
+        P.armLx = 0.5;
+        P.armRx = 0.5;
+      }
+
+      // düşme / kayma
+      if (slip && !st.wasSlip) {
+        st.spin = 7 + Math.random() * 3;
+        st.slipAngle = 0;
+      }
+      st.wasSlip = slip;
+      if (slip) {
+        st.fall = Math.min(1, st.fall + dt * 7);
+        st.slipAngle += dt * st.spin;
+        st.spin *= Math.exp(-3.5 * dt);
+        P.armLz = 1.0;
+        P.armRz = -1.0;
+        P.armLx = -0.9;
+        P.armRx = -0.9;
+        P.kneeL = 0.6;
+        P.kneeR = 0.6;
+      } else if (downed) {
+        st.fall = Math.min(1, st.fall + dt * 7);
+        st.slipAngle *= Math.exp(-6 * dt);
+        const crawl = Math.sin(t * 3.2);
+        P.armLx = -1.3 + crawl * 0.45;
+        P.armRx = -1.3 - crawl * 0.45;
+        P.elbowL = -0.9;
+        P.elbowR = -0.9;
+        P.thighL = 0.35 + crawl * 0.2;
+        P.thighR = 0.35 - crawl * 0.2;
+        P.kneeL = 0.5;
+        P.kneeR = 0.5;
+        P.headX = -0.35;
+      } else {
+        st.fall = Math.max(0, st.fall - dt * 6);
+        st.slipAngle *= Math.exp(-6 * dt);
+      }
+
+      // ---------- yumuşat ve uygula ----------
+      const k = 1 - Math.exp(-17 * dt);
+      const c = st.cur;
+      for (const key of Object.keys(c)) {
+        if (key === 'fall') continue;
+        const target = P[key] !== undefined ? P[key] : c[key];
+        c[key] += (target - c[key]) * k;
+      }
+      c.fall += (st.fall - c.fall) * (1 - Math.exp(-12 * dt));
+
+      legs[0].hip.rotation.x = c.thighL;
+      legs[1].hip.rotation.x = c.thighR;
+      legs[0].hip.rotation.z = 0.03;
+      legs[1].hip.rotation.z = -0.03;
+      legs[0].knee.rotation.x = c.kneeL;
+      legs[1].knee.rotation.x = c.kneeR;
+      for (let i = 0; i < 2; i++) {
+        const sx = i === 0 ? 1 : -1;
+        arms[i].shoulder.rotation.x = i === 0 ? c.armLx : c.armRx;
+        arms[i].shoulder.rotation.z = i === 0 ? c.armLz : c.armRz;
+        arms[i].elbow.rotation.x = i === 0 ? c.elbowL : c.elbowR;
+      }
+      hips.position.y = 0.8 + c.hipY;
+      hips.rotation.z = c.hipRoll;
+      chest.rotation.x = c.lean;
+      chest.rotation.y = c.twist;
+      head.rotation.x = c.headX - c.lean * 0.5;
+      head.rotation.y = c.headY;
+      root.position.y = c.rootY + c.fall * 0.16;
+      root.rotation.z = -c.fall * 1.36;
+      root.rotation.x = c.fall * 0.11;
+      root.rotation.y = st.slipAngle * 0.35;
     },
   };
   return api;
@@ -592,12 +886,119 @@ const BUILDERS = {
     }
     return { root, legs, head: headG, height: 1.8, fan };
   },
+  ayi(cfg) {
+    const root = new THREE.Group();
+    const body = sph(0.85, cfg.color);
+    body.scale.set(1.1, 0.92, 1.35);
+    body.position.y = 1.35;
+    root.add(body);
+    const hump = sph(0.55, cfg.color);
+    hump.scale.set(1, 0.8, 1);
+    hump.position.set(0, 1.85, 0.45);
+    root.add(hump);
+    const headG = new THREE.Group();
+    headG.position.set(0, 1.85, 1.15);
+    root.add(headG);
+    const head = sph(0.42, cfg.color);
+    headG.add(head);
+    const snout = box(0.3, 0.24, 0.34, cfg.dark);
+    snout.position.set(0, -0.12, 0.34);
+    headG.add(snout);
+    const nose = sph(0.09, 0x241a12);
+    nose.position.set(0, -0.04, 0.52);
+    headG.add(nose);
+    eyes(headG, 0.05, 0.15, 0.1, 0.34);
+    for (const s of [-1, 1]) {
+      const ear = sph(0.15, cfg.color);
+      ear.scale.set(1, 1, 0.6);
+      ear.position.set(s * 0.3, 0.32, 0.02);
+      headG.add(ear);
+      const earIn = sph(0.08, cfg.dark);
+      earIn.scale.set(1, 1, 0.5);
+      earIn.position.set(s * 0.3, 0.32, 0.09);
+      headG.add(earIn);
+      const claw = cone(0.055, 0.16, 0xf0e6d0);
+      claw.position.set(s * 0.12, -0.2, 0.44);
+      claw.rotation.x = Math.PI;
+      headG.add(claw);
+    }
+    const legs = makeLegs(root, 4, 0.34, 0.19, cfg.dark, [
+      [-0.5, 0.6], [0.5, 0.6], [-0.5, -0.6], [0.5, -0.6],
+    ]);
+    const tail = sph(0.14, cfg.dark);
+    tail.position.set(0, 1.5, -1.05);
+    root.add(tail);
+    return { root, legs, head: headG, quadruped: true, height: 2.1 };
+  },
+
+  timsah(cfg) {
+    const root = new THREE.Group();
+    const body = sph(0.72, cfg.color);
+    body.scale.set(1.0, 0.5, 1.9);
+    body.position.y = 0.5;
+    root.add(body);
+    // sırt çıkıntıları
+    for (let i = 0; i < 6; i++) {
+      const spike = cone(0.1, 0.22, cfg.dark);
+      spike.position.set(0, 0.82, 0.9 - i * 0.32);
+      root.add(spike);
+    }
+    const headG = new THREE.Group();
+    headG.position.set(0, 0.52, 1.35);
+    root.add(headG);
+    const skull = sph(0.32, cfg.color);
+    skull.scale.set(1, 0.55, 0.9);
+    headG.add(skull);
+    const jaw = box(0.34, 0.16, 0.85, cfg.color);
+    jaw.position.set(0, -0.06, 0.6);
+    headG.add(jaw);
+    const jawLow = box(0.3, 0.1, 0.78, cfg.dark);
+    jawLow.position.set(0, -0.17, 0.58);
+    headG.add(jawLow);
+    for (let i = 0; i < 5; i++) {
+      for (const s of [-1, 1]) {
+        const tooth = cone(0.028, 0.11, 0xffffff);
+        tooth.position.set(s * 0.15, -0.14, 0.3 + i * 0.16);
+        tooth.rotation.x = Math.PI;
+        headG.add(tooth);
+      }
+    }
+    for (const s of [-1, 1]) {
+      const eye = sph(0.09, 0xe8e04a);
+      eye.position.set(s * 0.15, 0.14, 0.12);
+      headG.add(eye);
+      const pupil = sph(0.035, 0x101010, { unique: true });
+      pupil.position.set(s * 0.15, 0.16, 0.2);
+      headG.add(pupil);
+    }
+    // kuyruk (animasyonlu)
+    const tail = new THREE.Group();
+    tail.position.set(0, 0.45, -1.2);
+    root.add(tail);
+    for (let i = 0; i < 5; i++) {
+      const seg = sph(0.34 - i * 0.06, i % 2 ? cfg.dark : cfg.color);
+      seg.scale.set(1, 0.5, 1.1);
+      seg.position.set(0, 0, -i * 0.36);
+      tail.add(seg);
+    }
+    const legGeo = new THREE.CapsuleGeometry(0.12, 0.2, 4, 8);
+    const legs = [];
+    for (const [x, z] of [[-0.6, 0.75], [0.6, 0.75], [-0.6, -0.7], [0.6, -0.7]]) {
+      const leg = new THREE.Mesh(legGeo, mat(cfg.dark));
+      leg.position.set(x, 0.2, z);
+      leg.rotation.z = x > 0 ? -0.9 : 0.9;
+      leg.castShadow = true;
+      root.add(leg);
+      legs.push(leg);
+    }
+    return { root, legs, head: headG, height: 1.1, tail, croc: true };
+  },
 };
 
 // oyun içinde daha okunaklı görünsünler diye hafif büyütme
 const SIZE_SCALE = {
   aslan: 1.14, kaplan: 1.12, goril: 1.14, devekusu: 1.12, maymun: 1.18,
-  yilan: 1.25, fil: 1.04, penguen: 1.22, tavus: 1.14,
+  yilan: 1.25, fil: 1.04, penguen: 1.22, tavus: 1.14, ayi: 1.1, timsah: 1.15,
 };
 
 export function createAnimal(species, cfg) {
@@ -645,6 +1046,17 @@ export function createAnimal(species, cfg) {
         p.fan.rotation.x = -0.35 - (state.scared ? 1.1 : Math.sin(t * 0.8) * 0.07);
       }
       if (p.trunk) p.trunk.rotation.x = Math.sin(t * 1.5 + this.phase) * 0.12 + (state.scared ? -0.4 : 0);
+      if (p.tail && p.croc) {
+        p.tail.rotation.y = Math.sin(t * 3 + this.phase) * 0.32 * (moving ? 1.6 : 0.7);
+        p.tail.rotation.x = Math.sin(t * 2 + this.phase) * 0.07;
+      }
+      if (state.lunge > 0) {
+        p.root.position.z = Math.sin(state.lunge * Math.PI) * 0.5;
+        p.root.rotation.x = -Math.sin(state.lunge * Math.PI) * 0.25;
+      } else {
+        p.root.position.z = 0;
+        p.root.rotation.x = 0;
+      }
       if (p.arms) {
         p.arms.forEach((arm, i) => {
           arm.rotation.x = moving ? Math.sin(t * 5 + this.phase + i * Math.PI) * 0.35 : 0;

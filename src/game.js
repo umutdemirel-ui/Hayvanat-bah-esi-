@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { createWorld } from './world.js';
 import { Effects } from './effects.js';
-import { createRanger, createAnimal, mat } from './models.js';
+import { createRanger, createAnimal, createCage, mat } from './models.js';
 import { MAP, resolveCollisions, isBlocked } from '../shared/map.js';
 import { WORLD, SPECIES, TOOLS, COLORS, ANIMAL_SPAWNS } from '../shared/config.js';
 
@@ -47,8 +47,17 @@ export class Game {
     this.camYaw = Math.PI;
     this.camPitch = 0.2;
     this.camDist = 7.8;
+    this.camDistTarget = 7.8;
+    this.baitKindIdx = 0;
+    this.wheelAcc = 0;
     this.cinematic = true;
     this.cinematicAngle = 0;
+    this.stamina = 1;
+    this.staminaDelay = 0;
+    this.localAction = null;
+    this.hurtAt = -10;
+    this.cages = [];
+    this.stepAcc = 0;
     this.ready = false;
   }
 
@@ -80,6 +89,10 @@ export class Game {
     this.effects = new Effects(scene);
 
     window.addEventListener('resize', () => this.resize());
+    window.addEventListener('wheel', (e) => {
+      if (this.phase !== 'playing') return;
+      this.wheelAcc += e.deltaY;
+    }, { passive: true });
     this.ready = true;
     this.last = performance.now();
     this.loop = this.loop.bind(this);
@@ -109,6 +122,9 @@ export class Game {
     this.prevHp = 100;
     this.me.downed = false;
     this.me.vx = this.me.vz = 0;
+    this.stamina = 1;
+    this.staminaDelay = 0;
+    this.localAction = null;
     this.audio.play('spawn');
   }
 
@@ -126,6 +142,12 @@ export class Game {
     this.me.downed = false;
     this.me.hp = 100;
     this.prevHp = 100;
+    this.stamina = 1;
+    this.staminaDelay = 0;
+    this.localAction = null;
+    this.hurtAt = -10;
+    for (const c of this.cages) this.scene.remove(c.group);
+    this.cages = [];
     this.hud.resetRound();
     for (const p of this.players.values()) p.group.position.set(0, -50, 0);
     for (const a of this.animals.values()) a.group.position.set(0, -50, 0);
@@ -176,7 +198,7 @@ export class Game {
         const label = this.makeLabel(p.n, COLORS[p.c % COLORS.length]);
         label.position.y = 2.15;
         api.group.add(label);
-        ent = { api, target: { x: p.x, z: p.z, yaw: p.yaw }, moving: 0, label };
+        ent = { api, target: { x: p.x, z: p.z, yaw: p.yaw }, moving: 0, label, action: null, hurtAt: -10 };
         this.players.set(p.id, ent);
         api.group.position.set(p.x, 0, p.z);
       }
@@ -186,6 +208,10 @@ export class Game {
       ent.moving = p.st?.mv ?? 0;
       ent.speed = p.st?.sp ? 1.35 : 1;
       ent.snap = p;
+      if (p.sk >= 2 && ent.lastStreak !== p.sk) {
+        ent.lastStreak = p.sk;
+        this.hud.feed(`🔥 <b>${escape(p.n)}</b> seri yaptı: <b>x${p.sk}</b>`, 'good');
+      }
       const netted = !!p.st?.net;
       ent.api.netGroup.visible = !netted;
       ent.api.downed = !!p.d;
@@ -218,7 +244,7 @@ export class Game {
         const bar = this.makeBar();
         bar.group.position.y = (api.parts.height || 1.5) + 0.7;
         api.group.add(bar.group);
-        ent = { api, bar, target: { x: a.x, z: a.z, yaw: a.yaw }, speed: 0, snap: a, cage: null, label: null };
+        ent = { api, bar, target: { x: a.x, z: a.z, yaw: a.yaw }, speed: 0, snap: a, cage: null, label: null, lungeAt: -10, aura: null };
         api.group.position.set(a.x, 0, a.z);
         this.animals.set(a.id, ent);
       }
@@ -230,6 +256,20 @@ export class Game {
       ent.bar.fill.position.x = -(1 - a.cap / 100) * 0.8;
       ent.bar.group.visible = a.cap > 2 || a.st || a.ea;
       ent.bar.fill.material.color.set(a.cap > 70 ? 0xff5a2e : 0xffb02e);
+      if (a.en && !ent.aura) {
+        const aura = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: this.glowTexture(), color: 0xff3a2a, transparent: true, opacity: 0.55,
+          blending: THREE.AdditiveBlending, depthWrite: false,
+        }));
+        aura.scale.setScalar(3.4);
+        aura.position.y = 0.8;
+        ent.api.group.add(aura);
+        ent.aura = aura;
+      }
+      if (ent.aura) {
+        ent.aura.visible = !!a.en;
+        ent.aura.scale.setScalar(3.2 + Math.sin(this.time * 6) * 0.45);
+      }
       if (a.st && !ent.cage) {
         ent.cage = this.makeCage();
         ent.api.group.add(ent.cage);
@@ -264,7 +304,7 @@ export class Game {
     this.syncProps(this.traps, snap.traps, (t) => this.makeTrap(), (ent, t) => {
       ent.group.position.set(t.x, 0, t.z);
     });
-    this.syncProps(this.baits, snap.baits, () => this.makeBait(), (ent, b) => {
+    this.syncProps(this.baits, snap.baits, (b) => this.makeBait(b.k), (ent, b) => {
       ent.group.position.set(b.x, 0.15, b.z);
     });
     this.syncProps(this.peels, snap.peels, () => this.makePeel(), (ent, p) => {
@@ -281,7 +321,7 @@ export class Game {
       seen.add(item.id);
       let ent = map.get(item.id);
       if (!ent) {
-        ent = { group: create() };
+        ent = { group: create(item) };
         this.scene.add(ent.group);
         map.set(item.id, ent);
       }
@@ -311,10 +351,10 @@ export class Game {
     switch (e.kind) {
       case 'start':
         this.hud.resetRound();
-        this.hud.feed('🎯 <b>Hedef:</b> 10 kaçkını 7 dakikada yakala', 'good');
-        this.hud.feed('💡 Yem → ağ = 2 kat etkili. Köşeye sıkıştır, yorulsun.');
+        this.hud.feed(`🎯 <b>Hedef:</b> ${ANIMAL_SPAWNS.length} kaçkını 7 dakikada yakala`, 'good');
+        this.hud.feed('💡 Yem → ağ = 2 kat etkili. <kbd>R</kbd> ile yem çeşidini diyete göre seç.');
         this.hud.feed('😈 Arkadaşını ağa dolamak serbest. Kaldırmayı unutma!', 'troll');
-        this.hud.banner('🚨 KAÇKINLAR SERBEST!', '10 hayvanı 7 dakikada yakala — arkadaşlarını da unutma', 3000);
+        this.hud.banner('🚨 KAÇKINLAR SERBEST!', `${ANIMAL_SPAWNS.length} hayvanı 7 dakikada yakala — arkadaşlarını da unutma`, 3000);
         this.audio.play('spawn');
         break;
       case 'catch': {
@@ -322,15 +362,37 @@ export class Game {
         this.effects.confetti(e.x, 0.5, e.z);
         this.effects.ring(e.x, 0.2, e.z, 0xffd93d, 5);
         this.floatText(e.x, 2.6, e.z, `+${e.points}`, '#8cf05c', 1.6);
+        this.spawnCageFx(e.x, e.z);
         const mine = e.by === this.myId;
+        const streakTxt = e.streak >= 2 ? ` · 🔥 SERİ x${e.streak + 1}` : '';
         this.hud.banner(
           `${sp.emoji} ${sp.name.toUpperCase()} YAKALANDI!`,
-          `${mine ? 'Senin eserin' : e.byName} · +${e.points} puan${e.teamBonus ? ' · EKİP BONUSU!' : ''}`,
+          `${mine ? 'Senin eserin' : e.byName} · +${e.points} puan${e.teamBonus ? ' · EKİP BONUSU!' : ''}${streakTxt}`,
           2200,
         );
         this.hud.feed(`${sp.emoji} <b>${sp.name}</b> yakalandı — <b>${escape(e.byName)}</b> +${e.points}`, 'good');
         break;
       }
+      case 'anim':
+        if (e.id !== this.myId) {
+          const ent = this.players.get(e.id);
+          if (ent) ent.action = { type: e.act, t0: this.time };
+        }
+        break;
+      case 'enrage':
+        this.audio.play('enrage');
+        this.effects.ring(e.x, 0.2, e.z, 0xff3a2a, 6);
+        this.effects.burst(e.x, 1.2, e.z, 0xff3a2a, 22, { speed: 6, life: 0.8 });
+        this.hud.feed(`😡 <b>${sp?.name || 'Hayvan'}</b> öfkelendi! Yakala ya da kaç`, 'bad');
+        break;
+      case 'heavy':
+        this.audio.play('heavy', { vol: this.distanceToMe(e.x, e.z) < 22 ? 1 : 0.4 });
+        if (e.id === this.myId) { this.hud.banner('🐻 AYI PENÇESİ', 'Sersemledin!', 1300); this.shake = 1.1; }
+        break;
+      case 'crush':
+        this.audio.play('crush', { vol: this.distanceToMe(e.x, e.z) < 22 ? 1 : 0.4 });
+        if (e.id === this.myId) { this.hud.banner('🐊 TİMSAH ISIRDI', 'Sersem + yavaş', 1400); this.shake = 1.2; }
+        break;
       case 'netHit': {
         this.audio.play('netHit');
         const col = e.capture >= 100 ? 0x8cf05c : 0xffd93d;
@@ -339,6 +401,11 @@ export class Game {
         break;
       }
       case 'hit': {
+        if (e.id === this.myId) this.hurtAt = this.time;
+        else {
+          const ent = this.players.get(e.id);
+          if (ent) ent.hurtAt = this.time;
+        }
         this.effects.burst(e.x, 1.3, e.z, 0xff4d4d, 10, { speed: 4.5, life: 0.5 });
         this.floatText(e.x, 2.4, e.z, `-${e.dmg}`, '#ff6b6b', 0.85);
         if (e.id !== this.myId && this.distanceToMe(e.x, e.z) < 14) {
@@ -358,6 +425,8 @@ export class Game {
         this.floatText(e.x, 2.0, e.z, 'uyudu 💤', '#c9b5ff', 1);
         break;
       case 'attack': {
+        const ent = this.animals.get(e.animalId);
+        if (ent) ent.lungeAt = this.time;
         this.audio.play('roar', { pitch: sp?.danger >= 3 ? 70 : 130, vol: 0.8 });
         this.effects.smoke(e.x, 1, e.z, 8, 0xd8c8a8);
         this.effects.ring(e.x, 0.15, e.z, 0xff6a3d, 3.2);
@@ -490,6 +559,21 @@ export class Game {
   }
 
   // ---------------- görsel yardımcılar ----------------
+  glowTexture() {
+    if (this._glowTex) return this._glowTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(255,255,255,0.95)');
+    g.addColorStop(0.4, 'rgba(255,255,255,0.35)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+    this._glowTex = new THREE.CanvasTexture(c);
+    return this._glowTex;
+  }
+
   makeLabel(text, color) {
     const c = document.createElement('canvas');
     c.width = 256; c.height = 64;
@@ -526,6 +610,22 @@ export class Game {
     g.add(fill);
     g.renderOrder = 4;
     return { group: g, fill, bg };
+  }
+
+  currentAction(ent) {
+    if (!ent || !ent.action) return null;
+    const dur = ent.api?.actionDur?.[ent.action.type] ?? 0.5;
+    const t = this.time - ent.action.t0;
+    if (t > dur) { ent.action = null; return null; }
+    return { type: ent.action.type, t };
+  }
+
+  spawnCageFx(x, z) {
+    const g = this.makeCage();
+    g.position.set(x, -1.5, z);
+    g.rotation.y = Math.random() * Math.PI;
+    this.scene.add(g);
+    this.cages.push({ group: g, t: 0 });
   }
 
   makeCage() {
@@ -597,21 +697,55 @@ export class Game {
     return g;
   }
 
-  makeBait() {
+  makeBait(kindKey) {
     const g = new THREE.Group();
-    const meat = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.32, 0),
-      mat(0xd4563f, { roughness: 1, unique: true }),
-    );
-    meat.position.y = 0.25;
-    meat.castShadow = true;
-    g.add(meat);
-    const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 6), mat(0xf4e6c8, { unique: true }));
-    bone.rotation.z = Math.PI / 2;
-    bone.position.y = 0.18;
-    g.add(bone);
+    const kind = TOOLS.bait.kinds.find((k) => k.k === kindKey) || TOOLS.bait.kinds[0];
+    const color = kind.color;
+    if (kind.k === 'balik') {
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 7), mat(color, { roughness: 0.5, unique: true }));
+      body.scale.set(1.6, 0.85, 0.6);
+      body.position.y = 0.22;
+      body.castShadow = true;
+      g.add(body);
+      const tailGeo = new THREE.ConeGeometry(0.2, 0.3, 4);
+      const tail = new THREE.Mesh(tailGeo, mat(color, { roughness: 0.5, unique: true }));
+      tail.rotation.z = Math.PI / 2;
+      tail.position.set(-0.46, 0.22, 0);
+      g.add(tail);
+    } else if (kind.k === 'meyve') {
+      const fruit = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 10), mat(color, { roughness: 0.7, unique: true }));
+      fruit.position.y = 0.27;
+      fruit.castShadow = true;
+      g.add(fruit);
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 5), mat(0x4faa3a, { unique: true }));
+      leaf.scale.set(1.6, 0.35, 0.8);
+      leaf.position.set(0.08, 0.52, 0);
+      g.add(leaf);
+    } else if (kind.k === 'ot') {
+      const grass = new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 6), mat(color, { roughness: 1, unique: true }));
+      grass.scale.set(1.3, 0.5, 1.3);
+      grass.position.y = 0.16;
+      g.add(grass);
+      for (let i = 0; i < 3; i++) {
+        const blade = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.42, 4), mat(0x9fe06a, { unique: true }));
+        blade.position.set(Math.cos(i * 2.1) * 0.18, 0.42, Math.sin(i * 2.1) * 0.18);
+        g.add(blade);
+      }
+    } else {
+      const meat = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.32, 0),
+        mat(color, { roughness: 1, unique: true }),
+      );
+      meat.position.y = 0.25;
+      meat.castShadow = true;
+      g.add(meat);
+      const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 6), mat(0xf4e6c8, { unique: true }));
+      bone.rotation.z = Math.PI / 2;
+      bone.position.y = 0.18;
+      g.add(bone);
+    }
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-      color: 0xff8f4d, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false,
+      color, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, map: this.glowTexture(),
     }));
     glow.scale.setScalar(2);
     glow.position.y = 0.3;
@@ -691,6 +825,14 @@ export class Game {
         this.hud.feed(m ? '🔇 Ses kapalı' : '🔊 Ses açık');
         continue;
       }
+      if (a === 'rotateBait') {
+        const kinds = TOOLS.bait.kinds;
+        this.baitKindIdx = (this.baitKindIdx + 1) % kinds.length;
+        const k = kinds[this.baitKindIdx];
+        this.hud.setBaitKind(k);
+        this.hud.feed(`${k.emoji} Yem türü: <b>${k.name}</b> — diyeti tutan hayvan daha güçlü gelir`, 'good');
+        continue;
+      }
       const tool = TOOLS[a];
       if (!tool) continue;
       if (this.me.downed) continue;
@@ -708,7 +850,10 @@ export class Game {
       const fx = this.me.x + Math.sin(this.me.yaw) * 1.1;
       const fz = this.me.z + Math.cos(this.me.yaw) * 1.1;
       if (a === 'net') this.effects.burst(fx, 1.1, fz, 0xffe8b0, 5, { speed: 2, life: 0.25, gravity: 0 });
-      this.net.send({ t: 'act', tool: a, yaw: this.me.yaw });
+      const msg = { t: 'act', tool: a, yaw: this.me.yaw };
+      if (a === 'bait') msg.kind = TOOLS.bait.kinds[this.baitKindIdx].k;
+      this.net.send(msg);
+      this.localAction = { type: a, t0: this.time };
       this.slotFlash = a;
     }
   }
@@ -732,13 +877,26 @@ export class Game {
     }
 
     const st = this.me.status || {};
+    // --- stamina (koşu enerjisi) ---
+    const mspd0 = Math.hypot(this.me.vx, this.me.vz);
+    const wantSprint = !!input.sprint && mspd0 > 0.6 && !this.me.downed && !st.net;
+    if (wantSprint && this.stamina > 0.02) {
+      this.stamina = Math.max(0, this.stamina - dt * 0.24);
+      this.staminaDelay = 0.65;
+      if (this.stamina === 0) this.hud.banner('😮‍💨 NEFESİN KESİLDİ', 'Yürüyerek toparlan', 900);
+    } else {
+      this.staminaDelay = Math.max(0, this.staminaDelay - dt);
+      if (this.staminaDelay === 0) this.stamina = Math.min(1, this.stamina + dt * 0.21);
+    }
+    const canSprint = this.stamina > 0.02 && !this.me.downed && !st.net;
+
     let speed = WORLD.playerSpeed;
     if (this.me.downed) speed *= 0.33;
     if (st.net) speed = 0;
     if (st.slow) speed *= 0.55;
     if (st.dizzy) speed *= 0.8;
     if (st.slip) speed *= 0.35;
-    if (input.sprint && !this.me.downed && !st.net) speed *= 1.26;
+    if (input.sprint && canSprint) speed *= 1.26;
 
     const mx = input.moveX;
     const mz = input.moveZ;
@@ -768,7 +926,7 @@ export class Game {
         t: 'move',
         x: +this.me.x.toFixed(3), z: +this.me.z.toFixed(3),
         yaw: +this.me.yaw.toFixed(3),
-        mv: len > 0.01 ? 1 : 0, sp: input.sprint && len > 0.01 ? 1 : 0,
+        mv: len > 0.01 ? 1 : 0, sp: !!input.sprint && canSprint && len > 0.01 ? 1 : 0,
       });
     }
 
@@ -820,6 +978,30 @@ export class Game {
       if (ent.group.userData.ring) ent.group.userData.ring.rotation.x = this.time * 6;
     }
 
+    // yakalama kafesleri
+    for (let i = this.cages.length - 1; i >= 0; i--) {
+      const c = this.cages[i];
+      c.t += dt;
+      const up = Math.min(1, c.t / 0.34);
+      c.group.position.y = -1.5 + (1 - Math.pow(1 - up, 3)) * 1.5;
+      c.group.rotation.y += dt * (c.t < 0.34 ? 3.2 : 0.5);
+      if (c.t > 1.7) {
+        this.scene.remove(c.group);
+        this.cages.splice(i, 1);
+      }
+    }
+
+    if (this.phase === 'playing' && this.stamina > 0.05) {
+      const spd = Math.hypot(this.me.vx, this.me.vz);
+      if (spd > 4.2 && !this.me.downed) {
+        this.stepAcc += dt * spd;
+        if (this.stepAcc > 2.4) {
+          this.stepAcc = 0;
+          this.effects.smoke(this.me.x, 0.12, this.me.z, 2, 0xc9b89a);
+        }
+      } else this.stepAcc = 0;
+    }
+
     if (this.phase === 'playing') this.handleInput(dt);
     this.updateLocalPlayer(dt);
 
@@ -841,13 +1023,38 @@ export class Game {
       if (isMe) {
         ent.api.group.position.set(this.me.x, 0, this.me.z);
         ent.api.group.rotation.y = this.me.yaw;
-        ent.api.animate(this.time, Math.hypot(this.me.vx, this.me.vz) > 0.7, 1);
+        const mspd = Math.hypot(this.me.vx, this.me.vz);
+        const mst = this.me.status || {};
+        ent.api.animate(this.time, {
+          moving: mspd > 0.6,
+          speed: Math.max(0.45, Math.min(1.7, mspd / 4.1)),
+          sprint: (mst.sp || (this.input?.sprint && mspd > 1)) && mspd > 1.1,
+          downed: !!this.me.downed,
+          netted: !!mst.net,
+          slip: !!mst.slip,
+          dizzy: !!mst.dizzy,
+          revive: this.reviveHeld || 0,
+          action: this.currentAction(ent),
+          hurt: this.time - this.hurtAt < 0.35 ? 1 : 0,
+        });
       } else {
         const k = 1 - Math.exp(-12 * dt);
         ent.api.group.position.x += (ent.target.x - ent.api.group.position.x) * k;
         ent.api.group.position.z += (ent.target.z - ent.api.group.position.z) * k;
         ent.api.group.rotation.y = lerpAngle(ent.api.group.rotation.y, ent.target.yaw, 1 - Math.exp(-14 * dt));
-        ent.api.animate(this.time, !!ent.moving, ent.speed || 1);
+        const rst = ent.snap?.st || {};
+        ent.api.animate(this.time, {
+          moving: !!ent.moving,
+          speed: Math.max(0.5, Math.min(1.7, ent.speed || 1)),
+          sprint: !!rst.sp && !!ent.moving,
+          downed: !!ent.snap?.d,
+          netted: !!rst.net,
+          slip: !!rst.slip,
+          dizzy: !!rst.dizzy,
+          revive: ent.snap?.rv || 0,
+          action: this.currentAction(ent),
+          hurt: this.time - (ent.hurtAt || -10) < 0.35 ? 1 : 0,
+        });
       }
       ent.api.group.visible = true;
       if (ent.label) ent.label.visible = !isMe;
@@ -870,12 +1077,16 @@ export class Game {
       ent.speed = d / Math.max(dt, 0.001) * 0.55;
       ent.api.group.rotation.y = lerpAngle(ent.api.group.rotation.y, ent.target.yaw, 1 - Math.exp(-9 * dt));
       const snap = ent.snap;
-      ent.api.animate(this.time, d > 0.02, {
+      const lungeP = (this.time - (ent.lungeAt || -10)) / 0.42;
+      ent.api.animate(this.time, {
         speed: snap?.s === 'fil' ? 0.8 : 1.2,
         eating: !!snap?.ea,
         stuck: !!snap?.st,
         slowed: !!snap?.sl,
         scared: snap?.cap > 60,
+        enraged: !!snap?.en,
+        lunge: lungeP > 0 && lungeP < 1 ? lungeP : 0,
+        moving: d > 0.02,
       });
       if (ent.bar.group.visible) {
         // her zaman kameraya bakan can göstergesi
@@ -918,6 +1129,9 @@ export class Game {
   updateCamera(dt) {
     const me = this.me;
     const targetY = 1.6 + (me.downed ? -0.9 : 0);
+    this.camDistTarget = Math.max(4.6, Math.min(12.5, this.camDistTarget + this.wheelAcc * 0.0022));
+    this.wheelAcc = 0;
+    this.camDist += (this.camDistTarget - this.camDist) * (1 - Math.exp(-8 * dt));
     const dist = this.camDist;
     const cy = Math.cos(this.camPitch);
     const sy = Math.sin(this.camPitch);
@@ -1040,6 +1254,7 @@ export class Game {
       if (me?.d) badges.push('💀 Yerde');
       this.hud.setBadges(badges);
       this.hud.setNet(!!st.net);
+      this.hud.setStamina(this.stamina);
       this.hud.trimFeed(performance.now());
     }
 

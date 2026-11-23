@@ -41,7 +41,7 @@ export class Input {
         KeyV: 'shove', KeyB: 'peel', KeyG: 'fire',
         KeyZ: 'emote_help', KeyX: 'emote_haha', KeyC: 'emote_sorry',
         KeyF: 'emote_mine', KeyT: 'emote_troll',
-        KeyH: 'help', KeyM: 'minimapZoom', KeyP: 'mute',
+        KeyH: 'help', KeyM: 'minimapZoom', KeyP: 'mute', KeyR: 'rotateBait',
       };
       const act = map[code];
       if (act) {
