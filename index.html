@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Hayvanat Bahçesi Kaçkınları — 3D Coop</title>
+    <meta name="description" content="Arkadaşlarınla 3D kooperatif hayvan yakalama oyunu: kaçan hayvanları stratejiyle yakala, birbirinizi trolle." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦁</text></svg>" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+      <div id="vignette"></div>
+      <div id="damageFlash"></div>
+      <div id="netOverlay"></div>
+
+      <!-- ================= ANA MENÜ ================= -->
+      <div id="menu" class="screen">
+        <div class="menu-glow"></div>
+        <div class="menu-card">
+          <div class="logo-row"><span class="logo-emoji">🦁</span><span class="logo-emoji small">🐧</span></div>
+          <h1>HAYVANAT BAHÇESİ<br /><span>KAÇKINLARI</span></h1>
+          <p class="tagline">
+            Çitler yıkıldı, 10 hayvan kaçtı. 4 bekçi, bir kamyon ve bolca kaos.
+            <b>Strateji kur, yakala — ama arkadaşını ağa dolamayı da unutma.</b>
+          </p>
+
+          <label class="field">
+            <span>Bekçi adın</span>
+            <input id="nameInput" maxlength="14" placeholder="Ranger" autocomplete="off" />
+          </label>
+
+          <div class="menu-buttons">
+            <button id="btnCreate" class="primary">
+              <span class="b-emoji">🏕️</span>
+              <span><b>Oda Kur</b><small>Arkadaşlarını bağlantı ile davet et</small></span>
+            </button>
+            <button id="btnSolo">
+              <span class="b-emoji">🎯</span>
+              <span><b>Tek Başına Oyna</b><small>Hemen başla, antrenman turu</small></span>
+            </button>
+            <button id="btnJoinMode">
+              <span class="b-emoji">🔑</span>
+              <span><b>Odaya Katıl</b><small>4 haneli kod ile</small></span>
+            </button>
+          </div>
+
+          <div id="joinRow" class="join-row hidden">
+            <input id="codeInput" maxlength="4" placeholder="KOD" autocomplete="off" />
+            <button id="btnJoin" class="primary">Gir</button>
+          </div>
+
+          <div id="menuError" class="error"></div>
+
+          <button id="btnHelp" class="ghost">📖 Nasıl Oynanır & Kontroller</button>
+          <div class="footnote">Ses açık oynanır · 1-4 oyuncu · tarayıcıdan, kurulum yok</div>
+        </div>
+      </div>
+
+      <!-- ================= YARDIM ================= -->
+      <div id="help" class="screen hidden">
+        <div class="help-card">
+          <h2>📖 Nasıl Oynanır</h2>
+          <div class="help-grid">
+            <section>
+              <h3>🎯 Amaç</h3>
+              <p>7 dakika içinde kaçan <b>10 hayvanı</b> yakala. Her hayvanın bir <b>yakalama göstergesi</b> var:
+                ağ attıkça dolar. Dolunca hayvan kamyona gider ve puanı senin olur.</p>
+              <p class="dim">Yakalamadan önce hayvanı <b>yavaşlat</b> ya da <b>oyala</b>: şırınga, yem, kapan. Yavaş/oyalanmış hayvana ağ atmak 2 kat daha etkili.</p>
+            </section>
+            <section>
+              <h3>🧠 Strateji</h3>
+              <ul>
+                <li><b>Köşeye sıkıştır:</b> Hayvanlar kaçar, duvar önünde yavaşlar.</li>
+                <li><b>Yem kur:</b> Hayvan yemeye gelir, 5 sn kıpırdamaz.</li>
+                <li><b>Maytap at:</b> Hayvanları korkutup arkadaşına doğru sürükle.</li>
+                <li><b>2 kişi yakın ol:</b> Aynı hayvanı yakalarken ekip bonusu +%25 puan.</li>
+                <li>Kaplan <b>pusu</b> kurar; goril <b>seni fırlatır</b>; maymun <b>eşyanı çalar</b> (yakalarsan geri gelir!).</li>
+              </ul>
+            </section>
+            <section>
+              <h3>😈 Trolleme (serbest)</h3>
+              <ul>
+                <li><b>Ağ at</b> → arkadaşın 2.6 sn ağda kalır, hayvanlar ona saldırır.</li>
+                <li><b>Şırınga</b> → sersemletir, ekranı döner.</li>
+                <li><b>İt (V)</b> → aslanın önüne doğru itmek tamamen kendi kararın.</li>
+                <li><b>Muz kabuğu (B)</b> → basan kayar. İstisnasız herkes.</li>
+                <li><b>Kapan</b> → arkadaşın da içine düşebilir.</li>
+                <li><b>Yem aşırma</b> → arkadaşının yemini alıp geri kazanırsın.</li>
+              </ul>
+              <p class="dim">Ama dikkat: yerde yatan arkadaşını kaldırmazsan tur yavaşlar, puan kaybedersin.</p>
+            </section>
+            <section>
+              <h3>⌨️ Kontroller</h3>
+              <div class="keys">
+                <div><kbd>W A S D</kbd> Hareket</div>
+                <div><kbd>Shift</kbd> Koş</div>
+                <div><kbd>Fare</kbd> Bakış</div>
+                <div><kbd>Sol Tık / 1</kbd> Ağ</div>
+                <div><kbd>2</kbd> Şırınga</div>
+                <div><kbd>3</kbd> Yem</div>
+                <div><kbd>4</kbd> Kapan</div>
+                <div><kbd>V</kbd> İt</div>
+                <div><kbd>B</kbd> Muz kabuğu</div>
+                <div><kbd>G</kbd> Maytap</div>
+                <div><kbd>E (basılı)</kbd> Arkadaşını kaldır</div>
+                <div><kbd>Q</kbd> Duygu ifadesi</div>
+                <div><kbd>M</kbd> Harita büyüt</div>
+                <div><kbd>H</kbd> Yardım</div>
+              </div>
+            </section>
+          </div>
+          <button id="btnHelpClose" class="primary">Anladım, kaçkınlar bekliyor</button>
+        </div>
+      </div>
+
+      <!-- ================= LOBİ ================= -->
+      <div id="lobby" class="screen hidden">
+        <div class="lobby-card">
+          <h2>🐾 Ekibin Toplanıyor</h2>
+          <div class="code-box">
+            <div>
+              <div class="label">ODA KODU</div>
+              <div id="lobbyCode">----</div>
+            </div>
+            <button id="btnCopy" class="ghost">🔗 Davet bağlantısını kopyala</button>
+          </div>
+          <div id="lobbyPlayers" class="lobby-players"></div>
+          <div id="lobbyMsg" class="dim"></div>
+          <button id="btnStart" class="primary big">🚨 Turu Başlat</button>
+          <div class="lobby-tips">
+            <b>İpucu:</b> Oyun 1-4 bekçi ile oynanır. Arkadaşların aynı bağlantıya girip oda kodunu yazsın.
+            Başlatmadan önce kontrolleri gözden geçirin: <kbd>H</kbd>
+          </div>
+          <button id="btnLeave" class="ghost small">Lobiden çık</button>
+        </div>
+      </div>
+
+      <!-- ================= HUD ================= -->
+      <div id="hud" class="hidden">
+        <div id="hudTop">
+          <div class="stat">
+            <div class="stat-val" id="timer">7:00</div>
+            <div class="stat-label">SÜRE</div>
+          </div>
+          <div class="stat">
+            <div class="stat-val" id="catchCount">0/10</div>
+            <div class="stat-label">YAKALANAN</div>
+          </div>
+          <div id="animalList"></div>
+        </div>
+
+        <div id="teamPanel"></div>
+
+        <div id="minimapWrap">
+          <canvas id="minimap" width="220" height="220"></canvas>
+          <div class="mm-label">ZOO HARİTASI</div>
+        </div>
+
+        <div id="feed"></div>
+
+        <div id="crosshair">
+          <div class="ch-dot"></div>
+          <div class="ch-ring"></div>
+        </div>
+
+        <div id="banner"></div>
+        <div id="prompt"></div>
+
+        <div id="bottomBar">
+          <div id="toolbar"></div>
+          <div id="trollbar"></div>
+        </div>
+
+        <div id="hudHint">
+          <span><kbd>1</kbd>–<kbd>4</kbd> araç</span>
+          <span><kbd>E</kbd> arkadaşını kaldır</span>
+          <span><kbd>H</kbd> yardım</span>
+          <span><kbd>Esc</kbd> fare</span>
+        </div>
+
+        <div id="bubbles"></div>
+        <div id="statusBadges"></div>
+      </div>
+
+      <!-- ================= SONUÇ ================= -->
+      <div id="results" class="screen hidden">
+        <div class="results-card">
+          <div id="resultTitle" class="result-title">TUR BİTTİ</div>
+          <div id="resultSub" class="result-sub"></div>
+          <div id="resultAwards"></div>
+          <div class="result-buttons">
+            <button id="btnAgain" class="primary big">🔁 Yeniden Oyna</button>
+            <button id="btnMenu" class="ghost">Ana Menü</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="loading" class="screen">
+        <div class="loader">
+          <div class="loader-emoji">🦓</div>
+          <div>Bahçe hazırlanıyor…</div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
