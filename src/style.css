@@ -48,6 +48,12 @@ html, body {
 }
 #damageFlash.on { opacity: 1; transition: opacity 0.05s; }
 
+#danger {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2; opacity: 0;
+  transition: opacity 0.25s;
+  background: radial-gradient(ellipse at center, transparent 42%, rgba(190, 20, 20, 0.55) 100%);
+}
+
 #netOverlay {
   position: absolute; inset: 0; pointer-events: none; z-index: 3; opacity: 0;
   transition: opacity 0.2s;
@@ -64,8 +70,8 @@ html, body {
   position: absolute; inset: 0; z-index: 20;
   display: flex; align-items: center; justify-content: center;
   padding: 24px; overflow: auto;
-  background: radial-gradient(circle at 50% 20%, rgba(30, 70, 40, 0.55), rgba(3, 8, 5, 0.93) 70%);
-  backdrop-filter: blur(6px);
+  background: radial-gradient(circle at 50% 20%, rgba(24, 56, 32, 0.42), rgba(3, 8, 5, 0.8) 78%);
+  backdrop-filter: blur(3.5px);
 }
 
 .menu-glow {
@@ -381,13 +387,14 @@ kbd {
 @keyframes bub { from { transform: translate(-50%, -80%) scale(0.7); opacity: 0; } }
 
 #statusBadges {
-  position: absolute; left: 50%; top: 58%; transform: translateX(-50%);
-  display: flex; gap: 8px; font-size: 12px;
+  position: absolute; left: 50%; bottom: 236px; transform: translateX(-50%);
+  display: flex; gap: 8px; font-size: 12.5px; flex-wrap: wrap; justify-content: center;
+  max-width: 60vw;
 }
 .badge {
-  background: rgba(255, 77, 77, 0.18); border: 1px solid rgba(255, 77, 77, 0.5);
-  color: #ffd0d0; padding: 3px 10px; border-radius: 8px; letter-spacing: 0.5px;
-  animation: pulse 1.4s infinite;
+  background: rgba(28, 8, 8, 0.72); border: 1px solid rgba(255, 100, 100, 0.55);
+  color: #ffd7d7; padding: 4px 11px; border-radius: 9px; letter-spacing: 0.4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
 /* ---------- sonuç ---------- */

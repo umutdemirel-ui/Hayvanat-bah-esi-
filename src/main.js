@@ -299,6 +299,9 @@ if (roomParam) {
 }
 
 // ilk tıklamada sesi başlat
+// hata ayıklama / test kancası
+window.__zoo = { game, hud, net, input, audio, state };
+
 window.addEventListener('pointerdown', () => audio.init(), { once: true });
 window.addEventListener('keydown', () => audio.init(), { once: true });
 

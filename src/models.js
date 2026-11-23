@@ -125,8 +125,8 @@ export function createRanger(color) {
 
   // ağ (sağ elde)
   const netGroup = new THREE.Group();
-  netGroup.position.set(0.36, 0.9, 0.12);
-  netGroup.rotation.set(-0.5, 0, -0.25);
+  netGroup.position.set(0.55, 0.95, 0.05);
+  netGroup.rotation.set(-0.42, 0, -0.5);
   const stick = cyl(0.035, 0.04, 1.15, 0x8a6b3f);
   stick.position.y = 0.1;
   netGroup.add(stick);
@@ -594,11 +594,18 @@ const BUILDERS = {
   },
 };
 
+// oyun içinde daha okunaklı görünsünler diye hafif büyütme
+const SIZE_SCALE = {
+  aslan: 1.14, kaplan: 1.12, goril: 1.14, devekusu: 1.12, maymun: 1.18,
+  yilan: 1.25, fil: 1.04, penguen: 1.22, tavus: 1.14,
+};
+
 export function createAnimal(species, cfg) {
   const builder = BUILDERS[species] || BUILDERS.maymun;
   const built = builder(cfg);
   const group = new THREE.Group();
   group.add(built.root);
+  group.scale.setScalar(SIZE_SCALE[species] || 1.1);
 
   const api = {
     group,

@@ -125,7 +125,7 @@ wall(-2, -20, 12, 7, 4.5, 'building');
 MAP.props.push({ type: 'building', x: -2, z: -20, rot: 0, scale: 1 });
 
 // kafes kamyonu / taşıma aracı (yakalananların gittiği yer) — dekor
-MAP.props.push({ type: 'truck', x: 6, z: 14, rot: 0.35, scale: 1 });
+MAP.props.push({ type: 'truck', x: 15, z: 19, rot: 0.75, scale: 1 });
 
 // yollar (görsel)
 MAP.paths.push(

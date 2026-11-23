@@ -113,10 +113,15 @@ tools/              Geliştirici testleri (aşağıya bak)
 node tools/rendertest.mjs     # 3D sahne/modelleri tarayıcısız kurar (API hatalarını yakalar)
 node tools/staticcheck.mjs    # DOM id'leri, HUD metotları, olay eşleşmeleri
 node tools/simtest.mjs 60     # sunucuya bağlanıp 60 sn otomatik oynar (sunucu açık olmalı)
+node tools/clienttest.mjs     # jsdom + sahte renderer ile istemcinin tamamını çalıştırır
+npm test                      # statik + 3D + istemci testleri
 node tools/mptest.mjs         # iki oyuncu + trolleme testi
 node tools/revivetest.mjs     # yaralı arkadaşı kaldırma testi
 ROUND_TIME=20 node server/index.js   # kısa tur (test için)
 ```
+
+> Gerçek tarayıcı testleri (`tools/shots.mjs`, `tools/playtest.mjs`, `tools/mp-browser.mjs`) isteğe bağlıdır:
+> `npm i -D puppeteer-core @sparticuz/chromium` (headless Chromium). Bu araçlar `shots/` altına ekran görüntüsü yazar.
 
 ---
 

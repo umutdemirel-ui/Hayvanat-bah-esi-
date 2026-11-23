@@ -420,9 +420,9 @@ export function createWorld(scene) {
   scene.fog = new THREE.Fog(0xcfe0c8, 90, 210);
 
   // ---- ışık ----
-  const hemi = new THREE.HemisphereLight(0xcfe4ff, 0x4a6b3a, 1.05);
+  const hemi = new THREE.HemisphereLight(0xd8ecff, 0x5c7f46, 1.35);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff2d0, 2.1);
+  const sun = new THREE.DirectionalLight(0xfff1cf, 2.6);
   sun.position.set(48, 74, 30);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -436,7 +436,7 @@ export function createWorld(scene) {
   sun.shadow.normalBias = 0.03;
   scene.add(sun);
   scene.add(sun.target);
-  const fill = new THREE.DirectionalLight(0xbcd2ff, 0.45);
+  const fill = new THREE.DirectionalLight(0xcfe0ff, 0.6);
   fill.position.set(-40, 30, -30);
   scene.add(fill);
 

@@ -52,18 +52,24 @@ export class Game {
     this.ready = false;
   }
 
-  init() {
-    const renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas, antialias: true, powerPreference: 'high-performance',
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.02;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer = renderer;
+  init(opts = {}) {
+    if (opts.renderer) {
+      // test/gömülü renderer (WebGL olmadan mantık testi)
+      this.renderer = opts.renderer;
+      this.headless = true;
+    } else {
+      const renderer = new THREE.WebGLRenderer({
+        canvas: this.canvas, antialias: true, powerPreference: 'high-performance',
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.02;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      this.renderer = renderer;
+    }
 
     const scene = new THREE.Scene();
     this.scene = scene;
@@ -97,6 +103,7 @@ export class Game {
 
   startRound() {
     this.phase = 'playing';
+    this.audio.ambienceOn();
     this.cinematic = false;
     this.cd = {};
     this.prevHp = 100;
@@ -107,6 +114,7 @@ export class Game {
 
   endRound() {
     this.phase = 'ended';
+    this.audio.ambienceOff();
     this.cinematic = true;
     this.cinematicAngle = this.camYaw;
   }
@@ -312,7 +320,7 @@ export class Game {
       case 'catch': {
         this.audio.play('catch');
         this.effects.confetti(e.x, 0.5, e.z);
-        this.effects.ring(e.x, 0.2, e.z, 0xffd93d, 7);
+        this.effects.ring(e.x, 0.2, e.z, 0xffd93d, 5);
         this.floatText(e.x, 2.6, e.z, `+${e.points}`, '#8cf05c', 1.6);
         const mine = e.by === this.myId;
         this.hud.banner(
@@ -352,7 +360,7 @@ export class Game {
       case 'attack': {
         this.audio.play('roar', { pitch: sp?.danger >= 3 ? 70 : 130, vol: 0.8 });
         this.effects.smoke(e.x, 1, e.z, 8, 0xd8c8a8);
-        this.effects.ring(e.x, 0.15, e.z, 0xff6a3d, 4);
+        this.effects.ring(e.x, 0.15, e.z, 0xff6a3d, 3.2);
         const mine = e.target === this.myId;
         if (mine) this.shake = Math.min(1.4, this.shake + 0.9);
         else if (this.distanceToMe(e.x, e.z) < 12) this.shake = Math.min(1, this.shake + 0.25);
@@ -427,7 +435,7 @@ export class Game {
         break;
       case 'explode':
         this.audio.play('explode');
-        this.effects.ring(e.x, 0.2, e.z, 0xffb02e, 18);
+        this.effects.ring(e.x, 0.2, e.z, 0xffb02e, 9);
         this.effects.burst(e.x, 0.6, e.z, 0xffb02e, 42, { speed: 12, life: 0.9, gravity: 12 });
         this.effects.smoke(e.x, 0.8, e.z, 20, 0x8a8a8a);
         this.shake = Math.min(1.4, this.shake + (this.distanceToMe(e.x, e.z) < 14 ? 0.8 : 0.2));
@@ -443,7 +451,7 @@ export class Game {
         break;
       case 'roar':
         this.audio.play('roar', { pitch: sp?.danger >= 3 ? 78 : 150, vol: 0.6 });
-        this.effects.ring(e.x, 0.2, e.z, 0xffb02e, 5);
+        this.effects.ring(e.x, 0.2, e.z, 0xffb02e, 3.5);
         break;
       case 'venom':
         if (e.id === this.myId) this.hud.banner('🐍 ZEHİRLENDİN', 'Yavaşladın, dikkat', 1400);
@@ -660,7 +668,7 @@ export class Game {
       map: tex, transparent: true, depthTest: false, depthWrite: false,
     }));
     spr.position.set(x, y, z);
-    spr.scale.set(3.2, 1.2, 1);
+    spr.scale.set(2.4, 0.9, 1);
     spr.renderOrder = 10;
     this.scene.add(spr);
     this.floats.push({ spr, life: dur, max: dur, y });
@@ -875,6 +883,16 @@ export class Game {
       }
     }
 
+    // yakında saldırgan hayvan varsa kırmızı kenar
+    if (this.phase === 'playing') {
+      let danger = 0;
+      for (const a of this.snapshot?.animals || []) {
+        const d = Math.hypot(a.x - this.me.x, a.z - this.me.z);
+        if (d < 9.5) danger = Math.max(danger, (1 - d / 9.5) * 0.75);
+      }
+      this.hud.setDanger(danger);
+    }
+
     // konuşma baloncukları
     this.updateBubbles();
 
@@ -911,19 +929,19 @@ export class Game {
     let camZ = me.z + oz;
     let camY = targetY + oy;
 
-    // duvar arkasında kalmasın
+    // duvar arkasında kalmasın (sadece çitler/bineler; ağaçlar kamerayı çekmesin)
     let blockedT = 1;
-    const steps = 12;
+    const steps = 14;
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
       const sx = me.x + ox * t;
       const sz = me.z + oz * t;
-      if (isBlocked(sx, sz, 0.45)) { blockedT = Math.max(0.16, (i - 1) / steps); break; }
+      if (blockedByWall(sx, sz, 0.4)) { blockedT = Math.max(0.34, (i - 1) / steps); break; }
     }
     if (blockedT < 1) {
       camX = me.x + ox * blockedT;
       camZ = me.z + oz * blockedT;
-      camY = targetY + oy * (0.5 + blockedT * 0.55);
+      camY = targetY + oy * (0.62 + blockedT * 0.4);
     }
 
     const k = 1 - Math.exp(-16 * dt);
@@ -943,7 +961,7 @@ export class Game {
     const lookZ = me.z + Math.cos(this.camYaw) * 1.6;
     this.camera.lookAt(lookX, targetY + 0.5, lookZ);
     const st = this.me.status || {};
-    this.camera.fov = 62 + (st.slip ? Math.sin(this.time * 8) * 3 : 0);
+    this.camera.fov = 66 + (st.slip ? Math.sin(this.time * 8) * 3 : 0);
     this.camera.updateProjectionMatrix();
 
     // nişan hedefi
@@ -1067,6 +1085,14 @@ export class Game {
   }
 
   stop() { this.running = false; }
+}
+
+// sadece çit/duvar/bina engelleri (kamera için)
+function blockedByWall(x, z, r) {
+  for (const w of MAP.walls) {
+    if (Math.abs(x - w.x) < w.w / 2 + r && Math.abs(z - w.z) < w.d / 2 + r) return true;
+  }
+  return false;
 }
 
 function dirtyDot(nx, nz, yaw) {

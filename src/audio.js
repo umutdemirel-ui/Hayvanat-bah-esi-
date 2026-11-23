@@ -26,6 +26,54 @@ export class Audio {
 
   get t() { return this.ctx ? this.ctx.currentTime : 0; }
 
+  // ---- ortam sesi: rüzgar + kuş cıvıltıları ----
+  ambienceOn() {
+    if (!this.ready || this.ambience) return;
+    const ctx = this.ctx;
+    const len = ctx.sampleRate * 3;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      last = last * 0.97 + (Math.random() * 2 - 1) * 0.03;
+      data[i] = last;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 520;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.16;
+    src.connect(filter).connect(gain).connect(this.master);
+    src.start();
+    this.ambience = { src, gain };
+
+    const chirp = () => {
+      if (!this.ambience) return;
+      const base = 1700 + Math.random() * 1500;
+      const n = 2 + ((Math.random() * 3) | 0);
+      for (let i = 0; i < n; i++) {
+        this.tone({
+          freq: base * (0.9 + Math.random() * 0.4), type: 'sine',
+          dur: 0.09, gain: 0.05, slideTo: base * (1.2 + Math.random() * 0.5),
+          delay: i * 0.11, attack: 0.01,
+        });
+      }
+      this.chirpTimer = setTimeout(chirp, 3500 + Math.random() * 8000);
+    };
+    this.chirpTimer = setTimeout(chirp, 2500);
+  }
+
+  ambienceOff() {
+    clearTimeout(this.chirpTimer);
+    if (this.ambience) {
+      try { this.ambience.src.stop(); } catch { /* yoksay */ }
+      this.ambience = null;
+    }
+  }
+
   toggleMute() {
     this.muted = !this.muted;
     if (this.master) this.master.gain.value = this.muted ? 0 : 0.55;

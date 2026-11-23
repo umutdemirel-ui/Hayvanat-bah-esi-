@@ -382,7 +382,7 @@ export class Hud {
     // yakalananlar işareti
     if (caughtIds?.size) {
       // (harita üzerinde kamyon noktası)
-      const tx = f(6), ty = f(14);
+      const tx = f(15), ty = f(19);
       ctx.beginPath();
       ctx.arc(tx, ty, 7, 0, 7);
       ctx.fillStyle = '#6ef07a';
@@ -441,6 +441,11 @@ export class Hud {
   }
 
   setCrosshair(active) { this.el.crosshair.classList.toggle('hot', active); }
+
+  setDanger(v) {
+    if (!this.el.danger) this.el.danger = $('danger');
+    if (this.el.danger) this.el.danger.style.opacity = String(Math.min(0.85, v * 0.85));
+  }
 
   // ---------------- baloncuklar ----------------
   setBubbles(list) {
