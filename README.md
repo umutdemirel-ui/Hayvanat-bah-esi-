@@ -115,6 +115,9 @@ src/input.js        Klavye / fare / pointer-lock / dokunmatik
 tools/              Geliştirici testleri (aşağıya bak)
 ```
 
+- **Titreşimsiz kamera:** konum ve bakış tek bir yumuşatılmış odak noktasından türetilir; sunucu
+  düzeltmeleri 15 Hz sıçrama yerine kare kare eritilir ve snapshot gecikmesi hızla telafi edilir
+  (ölçüm: landmark titremesi 31× azaldı, koşu hızı 5.2 → 7.3 m/s).
 - **Sunucu yetkili:** Hayvanlar, isabetler, yakalamalar ve puanlar sunucuda hesaplanır; istemci sadece hareketini önerir (hız sınırı + duvar doğrulaması ile).
 - 30 Hz simülasyon, 15 Hz snapshot; istemci interpolasyon + yerel hareket tahmini.
 - Tüm görseller ve sesler kodla üretilir — hiçbir dış varlık yok.
@@ -149,7 +152,8 @@ node tools/revivetest.mjs     # yaralı arkadaşı kaldırma testi
 ROUND_TIME=20 node server/index.js   # kısa tur (test için)
 ```
 
-> Gerçek tarayıcı testleri (`tools/shots.mjs`, `tools/playtest.mjs`, `tools/mp-browser.mjs`) isteğe bağlıdır:
+> Gerçek tarayıcı testleri (`tools/shots.mjs`, `tools/playtest.mjs`, `tools/mp-browser.mjs`,
+> `tools/jittertest.mjs`, `tools/animshot.mjs`) isteğe bağlıdır:
 > `npm i -D puppeteer-core @sparticuz/chromium` (headless Chromium). Bu araçlar `shots/` altına ekran görüntüsü yazar.
 
 ---

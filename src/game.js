@@ -128,6 +128,10 @@ export class Game {
     this.me.vx = this.me.vz = 0;
     this.bodyYaw = this.camYaw;
     this.aimUntil = 0;
+    this.corrX = 0;
+    this.corrZ = 0;
+    this.camBlock = 1;
+    this.camFocus = { x: this.me.x, y: 1.6, z: this.me.z };
     this.stamina = 1;
     this.staminaDelay = 0;
     this.bodyYaw = 0;
@@ -177,12 +181,26 @@ export class Game {
     const meSnap = snap.players.find((p) => p.id === this.myId);
     if (meSnap) {
       if (snap.phase === 'playing' && this.cinematic) this.startRound();
-      // konum düzeltmesi (sunucu itme/knockback uygular)
-      const d = Math.hypot(meSnap.x - this.me.x, meSnap.z - this.me.z);
-      if (d > 4) { this.me.x = meSnap.x; this.me.z = meSnap.z; }
-      else if (d > 0.35) {
-        this.me.x += (meSnap.x - this.me.x) * 0.22;
-        this.me.z += (meSnap.z - this.me.z) * 0.22;
+      // konum düzeltmesi — büyük fark (itme/knockback) anında, küçük fark kare kare eritilir.
+      // Snapshot sunucudan ~0.12 sn gecikmeyle gelir; bu gecikmeyi hız ile telafi et ki
+      // normal koşuda gereksiz düzeltme (ve titreme) oluşmasın.
+      const lagEst = 0.12;
+      const px = meSnap.x + this.me.vx * lagEst;
+      const pz = meSnap.z + this.me.vz * lagEst;
+      const ex = px - this.me.x;
+      const ez = pz - this.me.z;
+      const d = Math.hypot(ex, ez);
+      if (d > 3.5) {
+        this.me.x = meSnap.x;
+        this.me.z = meSnap.z;
+        this.camFocus.x = meSnap.x;
+        this.camFocus.z = meSnap.z;
+        this.corrX = 0;
+        this.corrZ = 0;
+      } else if (d > 0.9) {
+        // normal ağ gecikmesi (≈0.2-0.3 m) yok sayılır; sadece gerçek sapma düzeltilir
+        this.corrX = ex;
+        this.corrZ = ez;
       }
       this.me.hp = meSnap.hp;
       this.me.downed = !!meSnap.d;
@@ -934,7 +952,22 @@ export class Game {
     this.me.vx += (tvx - this.me.vx) * k;
     this.me.vz += (tvz - this.me.vz) * k;
 
-    const res = resolveCollisions(this.me.x + this.me.vx * dt, this.me.z + this.me.vz * dt, WORLD.playerRadius);
+    let nx = this.me.x + this.me.vx * dt;
+    let nz = this.me.z + this.me.vz * dt;
+    if (this.corrX !== 0 || this.corrZ !== 0) {
+      const kc = 1 - Math.exp(-9 * dt);
+      const sx = this.corrX * kc;
+      const sz = this.corrZ * kc;
+      nx += sx;
+      nz += sz;
+      this.corrX -= sx;
+      this.corrZ -= sz;
+      if (Math.abs(this.corrX) < 0.003 && Math.abs(this.corrZ) < 0.003) {
+        this.corrX = 0;
+        this.corrZ = 0;
+      }
+    }
+    const res = resolveCollisions(nx, nz, WORLD.playerRadius);
     this.me.x = res.x;
     this.me.z = res.z;
     // nişan yönü (araçlar bu yöne gider)
@@ -1161,6 +1194,15 @@ export class Game {
   updateCamera(dt) {
     const me = this.me;
     const targetY = 1.6 + (me.downed ? -0.9 : 0);
+
+    // tek yumuşatılmış odak: konum ve bakış aynı noktadan türetilir → sarsıntı yok
+    const kf = 1 - Math.exp(-22 * dt);
+    this.camFocus.x += (me.x - this.camFocus.x) * kf;
+    this.camFocus.z += (me.z - this.camFocus.z) * kf;
+    this.camFocus.y += (targetY - this.camFocus.y) * (1 - Math.exp(-9 * dt));
+    const fx = this.camFocus.x;
+    const fz = this.camFocus.z;
+    const fy = this.camFocus.y;
     this.camDistTarget = Math.max(4.6, Math.min(12.5, this.camDistTarget + this.wheelAcc * 0.0022));
     this.wheelAcc = 0;
     this.camDist += (this.camDistTarget - this.camDist) * (1 - Math.exp(-8 * dt));
@@ -1171,29 +1213,29 @@ export class Game {
     const oz = -Math.cos(this.camYaw) * dist * cy;
     const oy = 2.2 + dist * sy * 0.9;
 
-    let camX = me.x + ox;
-    let camZ = me.z + oz;
-    let camY = targetY + oy;
+    let camX = fx + ox;
+    let camZ = fz + oz;
+    let camY = fy + oy;
 
     // duvar arkasında kalmasın (sadece çitler/bineler; ağaçlar kamerayı çekmesin)
     let blockedT = 1;
-    const steps = 14;
+    const steps = 18;
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
-      const sx = me.x + ox * t;
-      const sz = me.z + oz * t;
+      const sx = fx + ox * t;
+      const sz = fz + oz * t;
       if (blockedByWall(sx, sz, 0.4)) { blockedT = Math.max(0.34, (i - 1) / steps); break; }
     }
-    if (blockedT < 1) {
-      camX = me.x + ox * blockedT;
-      camZ = me.z + oz * blockedT;
-      camY = targetY + oy * (0.62 + blockedT * 0.4);
+    // içeri girerken anında (duvarın içine girmeyelim), dışarı çıkarken yavaşça
+    if (blockedT < this.camBlock) this.camBlock = blockedT;
+    else this.camBlock += (blockedT - this.camBlock) * (1 - Math.exp(-4.5 * dt));
+    if (this.camBlock < 0.999) {
+      camX = fx + ox * this.camBlock;
+      camZ = fz + oz * this.camBlock;
+      camY = fy + oy * (0.62 + this.camBlock * 0.4);
     }
 
-    const k = 1 - Math.exp(-16 * dt);
-    this.camera.position.x += (camX - this.camera.position.x) * k;
-    this.camera.position.y += (camY - this.camera.position.y) * k;
-    this.camera.position.z += (camZ - this.camera.position.z) * k;
+    this.camera.position.set(camX, camY, camZ);
 
     if (this.shake > 0.001) {
       this.shake = Math.max(0, this.shake - dt * 2.2);
@@ -1203,9 +1245,9 @@ export class Game {
       this.camera.position.z += (Math.random() - 0.5) * s;
     }
 
-    const lookX = me.x + Math.sin(this.camYaw) * 1.6;
-    const lookZ = me.z + Math.cos(this.camYaw) * 1.6;
-    this.camera.lookAt(lookX, targetY + 0.5, lookZ);
+    const lookX = fx + Math.sin(this.camYaw) * 1.6;
+    const lookZ = fz + Math.cos(this.camYaw) * 1.6;
+    this.camera.lookAt(lookX, fy + 0.5, lookZ);
     const st = this.me.status || {};
     this.camera.fov = 66 + (st.slip ? Math.sin(this.time * 8) * 3 : 0);
     this.camera.updateProjectionMatrix();
