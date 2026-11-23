@@ -148,7 +148,7 @@ export class CloudNet {
       return;
     }
     for (let i = 0; i < HELLO_TRIES && !this.joined; i++) {
-      this.bus.send({ k: 'hello', gid: this.gid, name });
+      this._busSend({ k: 'hello', gid: this.gid, name });
       await sleep(HELLO_INTERVAL);
     }
     if (!this.joined) {
@@ -171,7 +171,7 @@ export class CloudNet {
     if (this.role === 'guest' && this.bus && this.joined) {
       if (obj.t === 'leave') { this.close(); return true; }
       if (obj.t === 'ping') return true; // gecikme bus üzerinden ölçülür
-      this.bus.send({ k: 'msg', gid: this.gid, m: obj });
+      this._busSend({ k: 'msg', gid: this.gid, m: obj });
       return true;
     }
     return false;
@@ -182,7 +182,7 @@ export class CloudNet {
     this.closedByUser = !silent;
     this._stopPing();
     if (this.role === 'guest' && this.bus && this.joined) {
-      try { await this.bus.send({ k: 'bye', gid: this.gid }); } catch { /* yoksay */ }
+      this._busSend({ k: 'bye', gid: this.gid });
     }
     if (this.host) this.host.stop();
     if (this.bus) { try { await this.bus.close(); } catch { /* yoksay */ } }
@@ -196,14 +196,22 @@ export class CloudNet {
   _relay(obj, to) {
     // kurucunun kendi ekranı
     if (!to) this.emit(obj.t, obj);
-    // misafirlere yayın
-    if (this.bus) this.bus.send({ k: 'out', to: to || null, m: obj });
+    // misafirlere yayın (hata olsa da oyun devam eder)
+    this._busSend({ k: 'out', to: to || null, m: obj });
+  }
+
+  _busSend(payload) {
+    if (!this.bus) return;
+    try {
+      const p = this.bus.send(payload);
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    } catch { /* yoksay */ }
   }
 
   _broadcastStatus() {
     if (!this.bus || !this.host) return;
     const room = this.host.room;
-    this.bus.send({
+    this._busSend({
       k: 'status',
       phase: room.phase,
       host: room.hostId,
@@ -219,10 +227,10 @@ export class CloudNet {
       case 'hello': {
         const p = this.host.join(gid, payload.name);
         if (!p) {
-          this.bus.send({ k: 'out', to: gid, m: { t: 'error', msg: 'Oda dolu (en fazla 4 bekçi).' } });
+          this._busSend({ k: 'out', to: gid, m: { t: 'error', msg: 'Oda dolu (en fazla 4 bekçi).' } });
           return;
         }
-        this.bus.send({
+        this._busSend({
           k: 'out', to: gid,
           m: {
             t: 'joined', id: p.id, room: this.code, host: this.host.room.hostId,
@@ -237,7 +245,7 @@ export class CloudNet {
         this.host.message(gid, payload.m);
         break;
       case 'ping':
-        this.bus.send({ k: 'out', to: gid, m: { t: 'pong', c: payload.c } });
+        this._busSend({ k: 'out', to: gid, m: { t: 'pong', c: payload.c } });
         break;
       case 'bye':
         this.host.leave(gid);
@@ -284,7 +292,7 @@ export class CloudNet {
     this._stopPing();
     if (!remote) return;
     this.pingTimer = setInterval(() => {
-      if (this.bus && this.joined) this.bus.send({ k: 'ping', gid: this.gid, c: Date.now() });
+      if (this.joined) this._busSend({ k: 'ping', gid: this.gid, c: Date.now() });
     }, 2500);
   }
 

@@ -136,15 +136,25 @@ export class SupaBus {
     return this;
   }
 
+  // Ağ hataları oyunu çökertmesin: hiçbir gönderim reddedilmiş promise üretmez.
   send(payload) {
     if (!this.channel) return Promise.resolve('closed');
-    return this.channel.send({ type: 'broadcast', event: MP_EVENT, payload });
+    try {
+      return Promise.resolve(this.channel.send({ type: 'broadcast', event: MP_EVENT, payload }))
+        .catch(() => 'error');
+    } catch {
+      return Promise.resolve('error');
+    }
   }
 
   track(meta) {
     this.meta = meta;
     if (!this.channel) return Promise.resolve('closed');
-    return this.channel.track(meta);
+    try {
+      return Promise.resolve(this.channel.track(meta)).catch(() => 'error');
+    } catch {
+      return Promise.resolve('error');
+    }
   }
 
   onMessage(fn) { this.handlers.add(fn); return this; }
@@ -152,7 +162,7 @@ export class SupaBus {
 
   async close() {
     if (this.channel && this.client) {
-      try { await this.client.removeChannel(this.channel); } catch { /* yoksay */ }
+      try { await Promise.resolve(this.client.removeChannel(this.channel)).catch(() => {}); } catch { /* yoksay */ }
     }
     this.channel = null;
   }
