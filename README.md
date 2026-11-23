@@ -83,7 +83,8 @@ DEV=1 npm run dev  # http://localhost:3000
 | Tuş | İşlev |
 |---|---|
 | `W A S D` | Hareket · `Shift` koş (stamina harcar) |
-| Fare | Bakış (tıkla → fare kilidi; kilitlenmezse **sağ tıkla sürükle** veya **ok tuşları**) |
+| Fare | Bakış — sağa sürükle → görüş sağa (tıkla → fare kilidi; kilitlenmezse **sağ tıkla sürükle** veya **ok tuşları**) |
+| Menü → Kontroller | Fare X / Y eksenini ters çevir (tercih kaydedilir) |
 | `Sol Tık` / `1` | Ağ |
 | `2` / `3` / `4` | Şırınga / Yem / Kapan |
 | `V` `B` `G` | İt / Muz kabuğu / Maytap |
@@ -117,6 +118,11 @@ tools/              Geliştirici testleri (aşağıya bak)
 - **Sunucu yetkili:** Hayvanlar, isabetler, yakalamalar ve puanlar sunucuda hesaplanır; istemci sadece hareketini önerir (hız sınırı + duvar doğrulaması ile).
 - 30 Hz simülasyon, 15 Hz snapshot; istemci interpolasyon + yerel hareket tahmini.
 - Tüm görseller ve sesler kodla üretilir — hiçbir dış varlık yok.
+
+### Kontrol yönleri
+- `W` ileri (kameradan uzağa), `S` geri, `D` **ekranda sağa**, `A` **ekranda sola** hareket eder.
+- Fare sağa → görüş sağa döner; fare aşağı → aşağı bakılır.
+- Zevkine göre **Fare X / Y ters** çevrilebilir (ana menüdeki Kontroller satırı veya yardım ekranı), `localStorage`'a kaydedilir.
 
 ### Karakter yönü ve yüzü
 - **Gövde WASD yönüne döner:** yan/çapraz giderken karakter o yöne koşar, geri geri giderken dönmez.

@@ -58,6 +58,8 @@ export class Game {
     this.aimUntil = 0;
     this.localAction = null;
     this.hurtAt = -10;
+    this.invertX = false;
+    this.invertY = false;
     this.cages = [];
     this.stepAcc = 0;
     this.ready = false;
@@ -878,11 +880,15 @@ export class Game {
     const input = this.input;
     if (!input) return;
     const look = input.consumeLook();
-    this.camYaw += look.x * 0.0026;
-    this.camPitch = Math.max(-0.35, Math.min(0.85, this.camPitch + look.y * 0.0022));
+    // fare sağa → görüş sağa döner (kamera sağa yatar); istenirse ters çevrilir
+    this.camYaw -= (this.invertX ? -1 : 1) * look.x * 0.0026;
+    this.camPitch = Math.max(
+      -0.35,
+      Math.min(0.85, this.camPitch + (this.invertY ? -1 : 1) * look.y * 0.0022),
+    );
     // klavye ile dönüş (fare kilidi yoksa da oynanabilsin)
     const turn = (input.keys.has('ArrowRight') ? 1 : 0) - (input.keys.has('ArrowLeft') ? 1 : 0);
-    if (turn) this.camYaw += turn * 2.6 * dt;
+    if (turn) this.camYaw -= turn * 2.6 * dt;
     const tilt = (input.keys.has('ArrowDown') ? 1 : 0) - (input.keys.has('ArrowUp') ? 1 : 0);
     if (tilt) this.camPitch = Math.max(-0.35, Math.min(0.85, this.camPitch + tilt * 1.4 * dt));
 
@@ -916,7 +922,8 @@ export class Game {
     const mx = input.moveX;
     const mz = input.moveZ;
     const fwdX = Math.sin(this.camYaw), fwdZ = Math.cos(this.camYaw);
-    const rightX = Math.cos(this.camYaw), rightZ = -Math.sin(this.camYaw);
+    // D/A → ekranda sağ/sol (kameranın sağ vektörü)
+    const rightX = -Math.cos(this.camYaw), rightZ = Math.sin(this.camYaw);
     let dx = fwdX * mz + rightX * mx;
     let dz = fwdZ * mz + rightZ * mx;
     const len = Math.hypot(dx, dz);

@@ -152,6 +152,31 @@ $('codeInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') $('btnJoin').click();
 });
 
+// ---------------- kontrol ayarları ----------------
+const invXBoxes = [...document.querySelectorAll('.opt-inv-x')];
+const invYBoxes = [...document.querySelectorAll('.opt-inv-y')];
+const syncCtlBoxes = () => {
+  for (const b of invXBoxes) b.checked = game.invertX;
+  for (const b of invYBoxes) b.checked = game.invertY;
+};
+game.invertX = localStorage.getItem('zoo:invX') === '1';
+game.invertY = localStorage.getItem('zoo:invY') === '1';
+syncCtlBoxes();
+for (const b of invXBoxes) {
+  b.addEventListener('change', () => {
+    game.invertX = b.checked;
+    localStorage.setItem('zoo:invX', game.invertX ? '1' : '0');
+    syncCtlBoxes();
+  });
+}
+for (const b of invYBoxes) {
+  b.addEventListener('change', () => {
+    game.invertY = b.checked;
+    localStorage.setItem('zoo:invY', game.invertY ? '1' : '0');
+    syncCtlBoxes();
+  });
+}
+
 $('btnHelp').addEventListener('click', () => { audio.play('click'); showScreen('help'); });
 $('btnHelpClose').addEventListener('click', () => {
   audio.play('click');
