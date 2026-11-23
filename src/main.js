@@ -135,7 +135,8 @@ $('btnCreate').addEventListener('click', async () => {
   audio.play('click');
   if (!(await ensureConnection())) return;
   state.pendingSolo = false;
-  net.create(getName(), { solo: false });
+  setError('Oda açılıyor…');
+  await net.create(getName(), { solo: false });
 });
 
 $('btnSolo').addEventListener('click', async () => {
@@ -143,7 +144,7 @@ $('btnSolo').addEventListener('click', async () => {
   audio.play('click');
   if (!(await ensureConnection())) return;
   state.pendingSolo = true;
-  net.create(getName(), { solo: true });
+  await net.create(getName(), { solo: true });
 });
 
 $('btnJoinMode').addEventListener('click', () => {
@@ -160,7 +161,8 @@ $('btnJoin').addEventListener('click', async () => {
   if (code.length !== 4) { setError('Oda kodu 4 karakter olmalı.'); return; }
   if (!(await ensureConnection())) return;
   state.pendingSolo = false;
-  net.join(code, getName());
+  setError('Odaya bağlanılıyor…');
+  await net.join(code, getName());
 });
 $('codeInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') $('btnJoin').click();

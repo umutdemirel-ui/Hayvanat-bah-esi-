@@ -105,6 +105,7 @@ export class SupaBus {
       });
     }
     await new Promise((resolve, reject) => {
+      const start = Date.now();
       const timer = setTimeout(() => reject(new Error('realtime-timeout')), 12000);
       const ch = this.client.channel(topic, {
         config: { broadcast: { self: false, ack: false }, presence: { key: this.meta?.tag || undefined } },
@@ -123,9 +124,12 @@ export class SupaBus {
           this.channel = ch;
           resolve();
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          clearTimeout(timer);
-          // bağlantı sonradan kurulabilir; hemen reddetme, sadece ilk kurulumu beklet
-          if (!this.channel) reject(new Error(status.toLowerCase()));
+          // supabase-js kendi yeniden bağlanma denemesini yapar; ilk saniyelerdeki
+          // dalgalanmayı hata sayma, sadece uzun süren başarısızlığı bildir.
+          if (Date.now() - start > 6000) {
+            clearTimeout(timer);
+            reject(new Error(status.toLowerCase()));
+          }
         }
       });
     });
